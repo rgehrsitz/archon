@@ -53,7 +53,7 @@ const handleNavScroll = (evt: Event) => {
           <div class="d-flex" v-html="logo" />
 
           <h1 class="leading-normal">
-            sneat
+            Archon
           </h1>
         </RouterLink>
       </slot>
