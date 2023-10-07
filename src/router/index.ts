@@ -17,24 +17,20 @@ const router = createRouter({
           component: () => import('../pages/account-settings.vue'),
         },
         {
-          path: 'typography',
-          component: () => import('../pages/typography.vue'),
+          path: 'equipment-list',
+          component: () => import('../pages/equipment-list.vue'),
         },
         {
-          path: 'icons',
-          component: () => import('../pages/icons.vue'),
+          path: 'diff-view',
+          component: () => import('../pages/diff-view.vue'),
         },
         {
-          path: 'cards',
-          component: () => import('../pages/cards.vue'),
+          path: 'git-functions',
+          component: () => import('../pages/git-functions.vue'),
         },
         {
-          path: 'tables',
-          component: () => import('../pages/tables.vue'),
-        },
-        {
-          path: 'form-layouts',
-          component: () => import('../pages/form-layouts.vue'),
+          path: 'settings',
+          component: () => import('../pages/settings.vue'),
         },
       ],
     },
