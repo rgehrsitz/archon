@@ -2,3 +2,5 @@ build/bin
 node_modules
 frontend/dist
 *.md5
+src/backend/coverage
+src/backend/storage_coverage
