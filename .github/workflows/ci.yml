@@ -1,0 +1,32 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  fast-lane:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go / Node
+        uses: ./.github/actions/setup-stack   # or individual setup-node + setup-go
+      - name: Lint & unit tests
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run lint
+          pnpm test
+          go vet ./...
+          go test ./...
+      - name: Rules & plan checks
+        run: |
+          python scripts/rules_lint.py
+          python scripts/plan_sync.py --check
+  slow-lane:
+    needs: fast-lane
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Integration & security
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck ./...
+          pnpm audit
+          docker build -t archon-test .
