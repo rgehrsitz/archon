@@ -4,3 +4,5 @@ frontend/dist
 *.md5
 src/backend/coverage
 src/backend/storage_coverage
+src/storage_coverage/attachments
+storage_coverage/attachments
