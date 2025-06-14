@@ -31,6 +31,21 @@ func LoadComponents(path string) ([]Component, error) {
 }
 
 // SaveComponents saves the components slice to the given file path (components.json).
+// SaveComponentsWithProject saves components and increments the change counter for auto-snapshot.
+func SaveComponentsWithProject(p *Project, components []Component) error {
+	data, err := json.MarshalIndent(components, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize components: %w", err)
+	}
+	if err := os.WriteFile(p.GetComponentsPath(), data, 0644); err != nil {
+		return fmt.Errorf("failed to write components file: %w", err)
+	}
+	p.changeCount++
+	p.autoSnapshot("")
+	return nil
+}
+
+// SaveComponents (legacy, for direct file path)
 func SaveComponents(path string, components []Component) error {
 	data, err := json.MarshalIndent(components, "", "  ")
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Project errors
@@ -30,6 +31,8 @@ type Project struct {
 	Path        string        `json:"-"`
 	Config      ProjectConfig `json:"config"`
 	initialized bool
+
+	changeCount int // for auto-snapshot trigger (MVP)
 }
 
 // ProjectLayout defines the standard file structure for an Archon project
@@ -147,8 +150,35 @@ func (p *Project) SaveConfig() error {
 		return fmt.Errorf("failed to write project config: %w", err)
 	}
 
+	// Auto-snapshot on config change
+	p.autoSnapshot("Config change")
+
 	return nil
 }
+
+// ImportConfigWithAutoSnapshot is a stub for MVP: triggers auto-snapshot before import.
+func (p *Project) ImportConfigWithAutoSnapshot(importPath string) error {
+	p.autoSnapshot("Pre-import")
+	// TODO: implement import logic
+	return nil
+}
+
+// autoSnapshot triggers an auto-snapshot if changeCount >= 5 or always if reason is given.
+func (p *Project) autoSnapshot(reason string) {
+	if reason == "" && p.changeCount < 5 {
+		return
+	}
+	tag := "auto-" + time.Now().UTC().Format("20060102-150405")
+	msg := reason
+	_, err := p.CreateSnapshot(tag, msg, "auto")
+	if err == nil {
+		fmt.Printf("[Archon] Auto-snapshot created: %s (%s)\n", tag, msg)
+		p.changeCount = 0
+	} else {
+		fmt.Printf("[Archon] Auto-snapshot failed: %v\n", err)
+	}
+}
+
 
 // verifyStructure checks if the project has the required file structure
 func (p *Project) verifyStructure() error {

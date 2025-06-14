@@ -48,7 +48,12 @@ func (p *Project) SaveAttachments(attachments []Attachment) error {
 	defer f.Close()
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	return enc.Encode(attachments)
+	err = enc.Encode(attachments)
+	if err == nil {
+		p.changeCount++
+		p.autoSnapshot("")
+	}
+	return err
 }
 
 // AddAttachment copies a file into the attachments directory and updates metadata.
