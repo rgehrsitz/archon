@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/archon/backend/model"
 )
 
 // Project errors
@@ -41,6 +43,13 @@ const (
 	ConfigFile     = "archon.json"
 	AttachmentsDir = "attachments"
 )
+
+// ProjectState represents the current state of a project
+type ProjectState struct {
+	LastModified time.Time `json:"lastModified"`
+	ChangeCount  int       `json:"changeCount"`
+	LastSnapshot string    `json:"lastSnapshot,omitempty"`
+}
 
 // New creates a new Project instance for the given path
 func New(path string) (*Project, error) {
@@ -217,4 +226,130 @@ func (p *Project) GetComponentsPath() string {
 // GetAttachmentsPath returns the absolute path to the attachments directory
 func (p *Project) GetAttachmentsPath() string {
 	return filepath.Join(p.Path, AttachmentsDir)
+}
+
+// LoadComponents loads all components from the project's components.json file
+func (p *Project) LoadComponents() ([]*model.Component, error) {
+	data, err := os.ReadFile(p.GetComponentsPath())
+	if err != nil {
+		return nil, fmt.Errorf("failed to read components file: %w", err)
+	}
+
+	var components []*model.Component
+	if err := json.Unmarshal(data, &components); err != nil {
+		return nil, fmt.Errorf("failed to parse components: %w", err)
+	}
+
+	// Validate all components
+	for _, c := range components {
+		if err := c.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid component %s: %w", c.ID, err)
+		}
+	}
+
+	return components, nil
+}
+
+// SaveComponents saves the given components to the project's components.json file
+func (p *Project) SaveComponents(components []*model.Component) error {
+	// Validate all components before saving
+	for _, c := range components {
+		if err := c.Validate(); err != nil {
+			return fmt.Errorf("invalid component %s: %w", c.ID, err)
+		}
+	}
+
+	data, err := json.MarshalIndent(components, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize components: %w", err)
+	}
+
+	if err := os.WriteFile(p.GetComponentsPath(), data, 0644); err != nil {
+		return fmt.Errorf("failed to write components file: %w", err)
+	}
+
+	// Increment change count for auto-snapshot
+	p.changeCount++
+	p.autoSnapshot("")
+
+	return nil
+}
+
+// UpdateComponent updates a single component in the project
+func (p *Project) UpdateComponent(component *model.Component) error {
+	components, err := p.LoadComponents()
+	if err != nil {
+		return err
+	}
+
+	// Find and update the component
+	found := false
+	for i, c := range components {
+		if c.ID == component.ID {
+			components[i] = component
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return model.ErrComponentNotFound
+	}
+
+	return p.SaveComponents(components)
+}
+
+// DeleteComponent removes a component from the project
+func (p *Project) DeleteComponent(componentID string) error {
+	components, err := p.LoadComponents()
+	if err != nil {
+		return err
+	}
+
+	// Filter out the component to delete
+	var newComponents []*model.Component
+	for _, c := range components {
+		if c.ID != componentID {
+			newComponents = append(newComponents, c)
+		}
+	}
+
+	if len(newComponents) == len(components) {
+		return model.ErrComponentNotFound
+	}
+
+	return p.SaveComponents(newComponents)
+}
+
+// GetState returns the current state of the project
+func (p *Project) GetState() *ProjectState {
+	return &ProjectState{
+		LastModified: time.Now(),
+		ChangeCount:  p.changeCount,
+		LastSnapshot: p.Config.Metadata["lastSnapshot"],
+	}
+}
+
+// HasUnsavedChanges returns true if there are unsaved changes in the project
+func (p *Project) HasUnsavedChanges() bool {
+	return p.changeCount > 0
+}
+
+// ResetChangeCount resets the change counter
+func (p *Project) ResetChangeCount() {
+	p.changeCount = 0
+}
+
+// UpdateLastSnapshot updates the last snapshot reference in the project config
+func (p *Project) UpdateLastSnapshot(snapshotID string) error {
+	if p.Config.Metadata == nil {
+		p.Config.Metadata = make(map[string]string)
+	}
+	p.Config.Metadata["lastSnapshot"] = snapshotID
+	return p.SaveConfig()
+}
+
+// GetLastSnapshot returns the ID of the last snapshot
+func (p *Project) GetLastSnapshot() string {
+	return p.Config.Metadata["lastSnapshot"]
 }

@@ -1,6 +1,7 @@
+<!-- +page.svelte -->
 <script lang="ts">
-  import Layout from './lib/components/Layout.svelte';
-  import ComponentTree from './lib/components/ComponentTree.svelte';
+  import Layout from '../lib/components/Layout.svelte';
+  import ComponentTree from '../lib/components/ComponentTree.svelte';
   
   let components = [
     {
@@ -73,7 +74,4 @@
       </div>
     </div>
   </div>
-</Layout>
-
-<style>
-</style>
+</Layout> 

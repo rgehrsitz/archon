@@ -36,7 +36,7 @@ func TestNewComponentTree(t *testing.T) {
 			name: "Invalid parent reference",
 			components: []*Component{
 				root,
-				&Component{
+				{
 					ID:       "orphan",
 					Name:     "Orphan",
 					Type:     "device",

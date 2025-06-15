@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/archon/backend/model"
 )
 
 func TestNew(t *testing.T) {
@@ -273,5 +275,190 @@ func TestProject_GetPaths(t *testing.T) {
 	expectedAttachmentsPath := filepath.Join(projectPath, AttachmentsDir)
 	if attachmentsPath != expectedAttachmentsPath {
 		t.Errorf("GetAttachmentsPath() = %s, want %s", attachmentsPath, expectedAttachmentsPath)
+	}
+}
+
+func TestProject_LoadSaveComponents(t *testing.T) {
+	// Create a temporary project
+	project, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to create project: %v", err)
+	}
+
+	if err := project.Initialize("test-project"); err != nil {
+		t.Fatalf("Failed to initialize project: %v", err)
+	}
+
+	// Create test components
+	components := []*model.Component{
+		model.NewComponent("comp1", "Component 1", "type1"),
+		model.NewComponent("comp2", "Component 2", "type2"),
+	}
+
+	// Save components
+	if err := project.SaveComponents(components); err != nil {
+		t.Fatalf("Failed to save components: %v", err)
+	}
+
+	// Load components
+	loadedComponents, err := project.LoadComponents()
+	if err != nil {
+		t.Fatalf("Failed to load components: %v", err)
+	}
+
+	// Verify components
+	if len(loadedComponents) != len(components) {
+		t.Errorf("Expected %d components, got %d", len(components), len(loadedComponents))
+	}
+
+	for i, c := range components {
+		if loadedComponents[i].ID != c.ID {
+			t.Errorf("Component %d: expected ID %s, got %s", i, c.ID, loadedComponents[i].ID)
+		}
+	}
+}
+
+func TestProject_UpdateComponent(t *testing.T) {
+	// Create a temporary project
+	project, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to create project: %v", err)
+	}
+
+	if err := project.Initialize("test-project"); err != nil {
+		t.Fatalf("Failed to initialize project: %v", err)
+	}
+
+	// Create initial component
+	component := model.NewComponent("comp1", "Component 1", "type1")
+	if err := project.SaveComponents([]*model.Component{component}); err != nil {
+		t.Fatalf("Failed to save initial component: %v", err)
+	}
+
+	// Update component
+	component.Name = "Updated Component"
+	if err := project.UpdateComponent(component); err != nil {
+		t.Fatalf("Failed to update component: %v", err)
+	}
+
+	// Load and verify
+	components, err := project.LoadComponents()
+	if err != nil {
+		t.Fatalf("Failed to load components: %v", err)
+	}
+
+	if len(components) != 1 {
+		t.Fatalf("Expected 1 component, got %d", len(components))
+	}
+
+	if components[0].Name != "Updated Component" {
+		t.Errorf("Expected name 'Updated Component', got '%s'", components[0].Name)
+	}
+}
+
+func TestProject_DeleteComponent(t *testing.T) {
+	// Create a temporary project
+	project, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to create project: %v", err)
+	}
+
+	if err := project.Initialize("test-project"); err != nil {
+		t.Fatalf("Failed to initialize project: %v", err)
+	}
+
+	// Create test components
+	components := []*model.Component{
+		model.NewComponent("comp1", "Component 1", "type1"),
+		model.NewComponent("comp2", "Component 2", "type2"),
+	}
+
+	if err := project.SaveComponents(components); err != nil {
+		t.Fatalf("Failed to save components: %v", err)
+	}
+
+	// Delete a component
+	if err := project.DeleteComponent("comp1"); err != nil {
+		t.Fatalf("Failed to delete component: %v", err)
+	}
+
+	// Load and verify
+	loadedComponents, err := project.LoadComponents()
+	if err != nil {
+		t.Fatalf("Failed to load components: %v", err)
+	}
+
+	if len(loadedComponents) != 1 {
+		t.Fatalf("Expected 1 component, got %d", len(loadedComponents))
+	}
+
+	if loadedComponents[0].ID != "comp2" {
+		t.Errorf("Expected remaining component ID 'comp2', got '%s'", loadedComponents[0].ID)
+	}
+
+	// Try to delete non-existent component
+	if err := project.DeleteComponent("nonexistent"); err != model.ErrComponentNotFound {
+		t.Errorf("Expected ErrComponentNotFound, got %v", err)
+	}
+}
+
+func TestProject_StateManagement(t *testing.T) {
+	// Create a temporary project
+	project, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("Failed to create project: %v", err)
+	}
+
+	if err := project.Initialize("test-project"); err != nil {
+		t.Fatalf("Failed to initialize project: %v", err)
+	}
+
+	// Test initial state
+	state := project.GetState()
+	if state.ChangeCount != 0 {
+		t.Errorf("Expected initial change count 0, got %d", state.ChangeCount)
+	}
+	if state.LastSnapshot != "" {
+		t.Errorf("Expected empty last snapshot, got %s", state.LastSnapshot)
+	}
+
+	// Test unsaved changes
+	if project.HasUnsavedChanges() {
+		t.Error("Expected no unsaved changes initially")
+	}
+
+	// Make some changes
+	component := model.NewComponent("comp1", "Component 1", "type1")
+	if err := project.SaveComponents([]*model.Component{component}); err != nil {
+		t.Fatalf("Failed to save component: %v", err)
+	}
+
+	if !project.HasUnsavedChanges() {
+		t.Error("Expected unsaved changes after saving component")
+	}
+
+	// Test snapshot tracking
+	snapshotID := "test-snapshot-1"
+	if err := project.UpdateLastSnapshot(snapshotID); err != nil {
+		t.Fatalf("Failed to update last snapshot: %v", err)
+	}
+
+	if got := project.GetLastSnapshot(); got != snapshotID {
+		t.Errorf("Expected last snapshot %s, got %s", snapshotID, got)
+	}
+
+	// Test reset change count
+	project.ResetChangeCount()
+	if project.HasUnsavedChanges() {
+		t.Error("Expected no unsaved changes after reset")
+	}
+
+	// Verify state after changes
+	state = project.GetState()
+	if state.ChangeCount != 0 {
+		t.Errorf("Expected change count 0 after reset, got %d", state.ChangeCount)
+	}
+	if state.LastSnapshot != snapshotID {
+		t.Errorf("Expected last snapshot %s, got %s", snapshotID, state.LastSnapshot)
 	}
 }
