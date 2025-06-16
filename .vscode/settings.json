@@ -1,0 +1,34 @@
+{
+  "go.testTimeout": "30s",
+  "go.testFlags": ["-v"],
+  "go.coverOnSave": false,
+  "go.coverOnSingleTest": false,  "go.coverOnSingleTestFile": false,
+  "go.gopath": "",
+  "go.goroot": "",
+  "go.buildTags": "",
+  "go.testTags": "",  "go.useLanguageServer": true,"gopls": {
+    "build.directoryFilters": [
+      "-**/node_modules",
+      "-**/frontend/dist",
+      "-**/frontend/build",
+      "-**/build",
+      "-storage_coverage"
+    ],
+    "formatting.gofumpt": true,
+    "ui.diagnostic.staticcheck": true
+  },
+  "files.exclude": {
+    "**/frontend/node_modules": true,
+    "**/frontend/dist": true,
+    "**/build": true,
+    "storage_coverage": true,
+    "archon_data": true
+  },
+  "search.exclude": {
+    "**/frontend/node_modules": true,
+    "**/frontend/dist": true,
+    "**/build": true,
+    "storage_coverage": true,
+    "archon_data": true
+  }
+}

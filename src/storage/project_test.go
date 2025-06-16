@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/archon/backend/model"
+	"github.com/rgehrsitz/archon/model"
 )
 
 func TestNew(t *testing.T) {

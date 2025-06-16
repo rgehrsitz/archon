@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/archon/backend/model"
+	"github.com/rgehrsitz/archon/model"
 )
 
 // Project errors
