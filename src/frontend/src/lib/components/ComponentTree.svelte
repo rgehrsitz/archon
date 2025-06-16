@@ -1,9 +1,13 @@
 <!-- ComponentTree.svelte -->
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   
-  // Dispatch payload directly
-  const dispatch = createEventDispatcher<{ select: { id: string } }>();
+  // Event callback prop
+  interface Props {
+    onselect?: (event: { id: string }) => void;
+  }
+  
+  let { onselect }: Props = $props();
   let expandedNodes = $state(new Set<string>());
   let components = $state<Array<{id: string, name: string, type: string, parentId: string | null}>>([]);
   let loading = $state(true);
@@ -49,8 +53,8 @@
   }
 
   function handleSelect(componentId: string) {
-    // Dispatch the payload directly
-    dispatch('select', { id: componentId });
+    // Call the event callback prop
+    onselect?.({ id: componentId });
   }
 
   function handleDragStart(event: DragEvent, componentId: string) {

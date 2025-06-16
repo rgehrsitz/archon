@@ -8,8 +8,8 @@
   let loadingDetails = $state(false);
   let errorDetails = $state<string | null>(null);
 
-  async function handleSelect(event: CustomEvent<{ id: string }>) {
-    selectedId = event.detail.id;
+  async function handleSelect(event: { id: string }) {
+    selectedId = event.id;
     selectedComponent = null;
     errorDetails = null;
     if (selectedId) {
@@ -31,7 +31,7 @@
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Component Tree -->
     <div class="lg:col-span-1">
-      <ComponentTree on:select={handleSelect} />
+      <ComponentTree onselect={handleSelect} />
     </div>
     
     <!-- Component Details -->
