@@ -9,7 +9,49 @@ import (
 	"path/filepath"
 	"regexp"
 	"time"
+
+	"github.com/rgehrsitz/archon/model"
 )
+
+// Minimal Project struct definition for compatibility
+// You should expand this struct to match your actual data model as needed
+type Project struct {
+	ID           int64
+	Name         string
+	Description  string
+	ParentID     *int64
+	Status       string
+	Priority     int
+	StartDate    *time.Time
+	EndDate      *time.Time
+	Progress     float64
+	Budget       *float64
+	ActualCost   *float64
+	Tags         []string
+	CustomFields map[string]interface{}
+	db           *sql.DB
+	CreatedAt    time.Time // Added field
+	UpdatedAt    time.Time // Added field
+	Path         string    // Added field
+}
+
+// LoadComponents loads all components for the project.
+// Stub implementation.
+func (p *Project) LoadComponents() ([]*model.Component, error) {
+	// TODO: Implement actual logic to load components from storage (e.g., a file or database)
+	// For now, returning an empty slice and no error.
+	fmt.Println("Project.LoadComponents() called - STUB IMPLEMENTATION")
+	return []*model.Component{}, nil
+}
+
+// SaveComponents saves all components for the project.
+// Stub implementation.
+func (p *Project) SaveComponents(components []*model.Component) error {
+	// TODO: Implement actual logic to save components to storage (e.g., a file or database)
+	// For now, just printing a message and returning no error.
+	fmt.Printf("Project.SaveComponents() called with %d components - STUB IMPLEMENTATION\n", len(components))
+	return nil
+}
 
 // Helper functions
 func (p *Project) validateName(name string) error {
@@ -399,10 +441,11 @@ func (p *Project) GetByID(ctx context.Context, id int64) error {
 	`
 
 	var tagsJSON, customFieldsJSON []byte
+	// Ensure CreatedAt and UpdatedAt are scanned
 	err := p.db.QueryRowContext(ctx, query, id).Scan(
 		&p.ID, &p.Name, &p.Description, &p.ParentID, &p.Status, &p.Priority,
 		&p.StartDate, &p.EndDate, &p.Progress, &p.Budget, &p.ActualCost,
-		&tagsJSON, &customFieldsJSON, &p.CreatedAt, &p.UpdatedAt,
+		&tagsJSON, &customFieldsJSON, &p.CreatedAt, &p.UpdatedAt, // Added CreatedAt, UpdatedAt
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -608,17 +651,34 @@ func (m *ComponentChangeManager) loadValidationRules(componentType string, chang
 }
 
 // loadSpecificRules loads specific validation rules for a component type
-func (m *ComponentChangeManager) loadSpecificRules(componentType string, changeType ChangeType) ([]ValidationRule, error) {
+func (m *ComponentChangeManager) loadSpecificRules(componentType string, _ ChangeType) ([]ValidationRule, error) {
 	rulesPath := filepath.Join(m.project.Path, "rules", "components", componentType+".json")
 	return m.loadRulesFromFile(rulesPath)
 }
 
 // loadGenericRules loads generic validation rules for a component type
-func (m *ComponentChangeManager) loadGenericRules(componentType string, changeType ChangeType) ([]ValidationRule, error) {
+func (m *ComponentChangeManager) loadGenericRules(componentType string, _ ChangeType) ([]ValidationRule, error) {
 	// Try to find a generic category for this component type
 	genericType := m.getGenericType(componentType)
 	rulesPath := filepath.Join(m.project.Path, "rules", "generic", genericType+".json")
 	return m.loadRulesFromFile(rulesPath)
+}
+
+// loadRulesFromFile loads validation rules from a JSON file.
+// Stub implementation.
+func (m *ComponentChangeManager) loadRulesFromFile(rulesPath string) ([]ValidationRule, error) {
+	// TODO: Implement actual logic to load rules from the specified file path.
+	// For now, returning an empty slice and no error.
+	fmt.Printf("ComponentChangeManager.loadRulesFromFile(%s) called - STUB IMPLEMENTATION\n", rulesPath)
+	if _, err := os.Stat(rulesPath); os.IsNotExist(err) {
+		return []ValidationRule{}, nil // Return empty if file doesn't exist, not an error for stub
+	}
+	// Attempt to read, but ignore content for stub
+	_, err := os.ReadFile(rulesPath)
+	if err != nil {
+		fmt.Printf("Warning: could not read rules file %s in stub: %v\n", rulesPath, err)
+	}
+	return []ValidationRule{}, nil
 }
 
 // getGenericType maps specific component types to generic categories
@@ -656,7 +716,7 @@ type ValidationRule struct {
 }
 
 // applyValidationRule applies a single validation rule
-func (m *ComponentChangeManager) applyValidationRule(rule ValidationRule, change ComponentChange, component *model.Component) error {
+func (m *ComponentChangeManager) applyValidationRule(rule ValidationRule, change ComponentChange, _ *model.Component) error {
 	// Check if property exists in new state
 	value, exists := change.NewState[rule.Property]
 	if !exists {
@@ -746,6 +806,62 @@ func (m *ComponentChangeManager) applyChangeToComponent(change ComponentChange, 
 	return nil
 }
 
+// applyHardwareChange applies a hardware change to the component.
+// Stub implementation.
+func (m *ComponentChangeManager) applyHardwareChange(change ComponentChange, component *model.Component) error {
+	fmt.Printf("ComponentChangeManager.applyHardwareChange() for component %s - STUB IMPLEMENTATION\n", component.ID)
+	// Apply generic property updates for stub
+	for k, v := range change.NewState {
+		if component.Properties == nil {
+			component.Properties = make(map[string]interface{})
+		}
+		component.Properties[k] = v
+	}
+	return nil
+}
+
+// applySoftwareChange applies a software change to the component.
+// Stub implementation.
+func (m *ComponentChangeManager) applySoftwareChange(change ComponentChange, component *model.Component) error {
+	fmt.Printf("ComponentChangeManager.applySoftwareChange() for component %s - STUB IMPLEMENTATION\n", component.ID)
+	// Apply generic property updates for stub
+	for k, v := range change.NewState {
+		if component.Properties == nil {
+			component.Properties = make(map[string]interface{})
+		}
+		component.Properties[k] = v
+	}
+	return nil
+}
+
+// applyConfigurationChange applies a configuration change to the component.
+// Stub implementation.
+func (m *ComponentChangeManager) applyConfigurationChange(change ComponentChange, component *model.Component) error {
+	fmt.Printf("ComponentChangeManager.applyConfigurationChange() for component %s - STUB IMPLEMENTATION\n", component.ID)
+	// Apply generic property updates for stub
+	for k, v := range change.NewState {
+		if component.Properties == nil {
+			component.Properties = make(map[string]interface{})
+		}
+		component.Properties[k] = v
+	}
+	return nil
+}
+
+// applyMaintenanceChange applies a maintenance change to the component.
+// Stub implementation.
+func (m *ComponentChangeManager) applyMaintenanceChange(change ComponentChange, component *model.Component) error {
+	fmt.Printf("ComponentChangeManager.applyMaintenanceChange() for component %s - STUB IMPLEMENTATION\n", component.ID)
+	// Apply generic property updates for stub
+	for k, v := range change.NewState {
+		if component.Properties == nil {
+			component.Properties = make(map[string]interface{})
+		}
+		component.Properties[k] = v
+	}
+	return nil
+}
+
 // saveChangeRecord saves a change record to the history
 func (m *ComponentChangeManager) saveChangeRecord(change ComponentChange) error {
 	// Load existing history
@@ -773,4 +889,4 @@ func (m *ComponentChangeManager) saveChangeRecord(change ComponentChange) error 
 // GetChangeHistoryPath returns the path to the change history file
 func (p *Project) GetChangeHistoryPath() string {
 	return filepath.Join(p.Path, "change_history.json")
-} 
+}

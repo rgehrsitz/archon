@@ -17,25 +17,25 @@ var (
 	ErrInvalidSnapshot = errors.New("invalid snapshot")
 	ErrSnapshotExists  = errors.New("snapshot already exists")
 	ErrSnapshotNotFound = errors.New("snapshot not found")
+	ErrDuplicateTag    = errors.New("duplicate tag")
 	ErrInvalidTag      = errors.New("invalid tag")
-	ErrTagExists       = errors.New("tag already exists")
 )
 
-// Snapshot represents a point-in-time capture of component configuration
-type Snapshot struct {
-	ID          string            `json:"id"`
-	Tag         string            `json:"tag,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Timestamp   time.Time         `json:"timestamp"`
-	Components  json.RawMessage   `json:"components"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
+// SnapshotData represents a versioned state of the configuration
+type SnapshotData struct {
+	ID        string    `json:"id"`
+	Message   string    `json:"message"`
+	Tag       string    `json:"tag,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
+	Author    string    `json:"author"`
+	Tree      []byte    `json:"tree"` // Serialized component tree
 }
 
 // SnapshotManager handles the creation, retrieval, and management of snapshots
 type SnapshotManager struct {
 	SnapshotsDir string
-	snapshots    map[string]*Snapshot
-	tagIndex     map[string]string // Maps tags to snapshot IDs
+	snapshots    map[string]*SnapshotData
+	tagIndex     map[string]string // tag -> snapshot ID mapping
 }
 
 // NewSnapshotManager creates a new snapshot manager for the given directory
@@ -51,7 +51,7 @@ func NewSnapshotManager(snapshotsDir string) (*SnapshotManager, error) {
 
 	manager := &SnapshotManager{
 		SnapshotsDir: snapshotsDir,
-		snapshots:    make(map[string]*Snapshot),
+		snapshots:    make(map[string]*SnapshotData),
 		tagIndex:     make(map[string]string),
 	}
 
@@ -84,12 +84,14 @@ func (m *SnapshotManager) loadSnapshots() error {
 			return fmt.Errorf("failed to read snapshot file %s: %w", file.Name(), err)
 		}
 
-		var snapshot Snapshot
+		var snapshot SnapshotData
 		if err := json.Unmarshal(data, &snapshot); err != nil {
 			return fmt.Errorf("failed to parse snapshot file %s: %w", file.Name(), err)
 		}
 
 		m.snapshots[snapshot.ID] = &snapshot
+		
+		// Build tag index
 		if snapshot.Tag != "" {
 			m.tagIndex[snapshot.Tag] = snapshot.ID
 		}
@@ -99,28 +101,46 @@ func (m *SnapshotManager) loadSnapshots() error {
 }
 
 // CreateSnapshot creates a new snapshot with the given components data
-func (m *SnapshotManager) CreateSnapshot(components []byte, tag, description string) (*Snapshot, error) {
+func (m *SnapshotManager) CreateSnapshot(components []byte, description string) (*SnapshotData, error) {
+	// Create snapshot
+	id := uuid.New().String()
+	snapshot := &SnapshotData{
+		ID:        id,
+		Message:   description,
+		Timestamp: time.Now().UTC(),
+		Author:    "system",
+		Tree:      components,
+	}
+
+	// Save snapshot to file
+	if err := m.saveSnapshot(snapshot); err != nil {
+		return nil, err
+	}
+
+	// Update in-memory indexes
+	m.snapshots[snapshot.ID] = snapshot
+
+	return snapshot, nil
+}
+
+// CreateSnapshotWithTag creates a new snapshot with a tag and validation
+func (m *SnapshotManager) CreateSnapshotWithTag(components []byte, description, tag string) (*SnapshotData, error) {
 	// Validate tag if provided
 	if tag != "" {
-		if !isValidTag(tag) {
-			return nil, ErrInvalidTag
-		}
-
-		// Check if tag already exists
-		if _, exists := m.tagIndex[tag]; exists {
-			return nil, ErrTagExists
+		if err := m.validateTag(tag); err != nil {
+			return nil, err
 		}
 	}
 
 	// Create snapshot
 	id := uuid.New().String()
-	snapshot := &Snapshot{
-		ID:          id,
-		Tag:         tag,
-		Description: description,
-		Timestamp:   time.Now().UTC(),
-		Components:  components,
-		Metadata:    make(map[string]string),
+	snapshot := &SnapshotData{
+		ID:        id,
+		Message:   description,
+		Tag:       tag,
+		Timestamp: time.Now().UTC(),
+		Author:    "system",
+		Tree:      components,
 	}
 
 	// Save snapshot to file
@@ -137,8 +157,30 @@ func (m *SnapshotManager) CreateSnapshot(components []byte, tag, description str
 	return snapshot, nil
 }
 
+// validateTag validates a snapshot tag
+func (m *SnapshotManager) validateTag(tag string) error {
+	if tag == "" {
+		return ErrInvalidTag
+	}
+
+	// Check for duplicate tag
+	if _, exists := m.tagIndex[tag]; exists {
+		return ErrDuplicateTag
+	}
+
+	// Validate tag format (basic validation - alphanumeric, dots, hyphens, underscores)
+	for _, r := range tag {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || 
+			 (r >= '0' && r <= '9') || r == '.' || r == '-' || r == '_') {
+			return ErrInvalidTag
+		}
+	}
+
+	return nil
+}
+
 // saveSnapshot writes a snapshot to disk
-func (m *SnapshotManager) saveSnapshot(snapshot *Snapshot) error {
+func (m *SnapshotManager) saveSnapshot(snapshot *SnapshotData) error {
 	data, err := json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to serialize snapshot: %w", err)
@@ -153,7 +195,7 @@ func (m *SnapshotManager) saveSnapshot(snapshot *Snapshot) error {
 }
 
 // GetSnapshot retrieves a snapshot by ID
-func (m *SnapshotManager) GetSnapshot(id string) (*Snapshot, error) {
+func (m *SnapshotManager) GetSnapshot(id string) (*SnapshotData, error) {
 	snapshot, exists := m.snapshots[id]
 	if !exists {
 		return nil, ErrSnapshotNotFound
@@ -161,18 +203,9 @@ func (m *SnapshotManager) GetSnapshot(id string) (*Snapshot, error) {
 	return snapshot, nil
 }
 
-// GetSnapshotByTag retrieves a snapshot by tag
-func (m *SnapshotManager) GetSnapshotByTag(tag string) (*Snapshot, error) {
-	id, exists := m.tagIndex[tag]
-	if !exists {
-		return nil, ErrSnapshotNotFound
-	}
-	return m.GetSnapshot(id)
-}
-
 // ListSnapshots returns all snapshots sorted by timestamp (newest first)
-func (m *SnapshotManager) ListSnapshots() []*Snapshot {
-	snapshots := make([]*Snapshot, 0, len(m.snapshots))
+func (m *SnapshotManager) ListSnapshots() []*SnapshotData {
+	snapshots := make([]*SnapshotData, 0, len(m.snapshots))
 	for _, snapshot := range m.snapshots {
 		snapshots = append(snapshots, snapshot)
 	}
@@ -183,7 +216,7 @@ func (m *SnapshotManager) ListSnapshots() []*Snapshot {
 }
 
 // sortSnapshotsByTimestamp sorts snapshots by timestamp in descending order
-func sortSnapshotsByTimestamp(snapshots []*Snapshot) {
+func sortSnapshotsByTimestamp(snapshots []*SnapshotData) {
 	for i := 0; i < len(snapshots)-1; i++ {
 		for j := i + 1; j < len(snapshots); j++ {
 			if snapshots[i].Timestamp.Before(snapshots[j].Timestamp) {
@@ -193,47 +226,11 @@ func sortSnapshotsByTimestamp(snapshots []*Snapshot) {
 	}
 }
 
-// UpdateTag updates or adds a tag to a snapshot
-func (m *SnapshotManager) UpdateTag(id, tag string) error {
-	if tag != "" && !isValidTag(tag) {
-		return ErrInvalidTag
-	}
-
-	// Check if tag already exists on a different snapshot
-	if existingID, exists := m.tagIndex[tag]; exists && existingID != id {
-		return ErrTagExists
-	}
-
-	snapshot, exists := m.snapshots[id]
-	if !exists {
-		return ErrSnapshotNotFound
-	}
-
-	// Remove old tag from index if it exists
-	if snapshot.Tag != "" {
-		delete(m.tagIndex, snapshot.Tag)
-	}
-
-	// Update tag
-	snapshot.Tag = tag
-	if tag != "" {
-		m.tagIndex[tag] = id
-	}
-
-	// Save updated snapshot
-	return m.saveSnapshot(snapshot)
-}
-
 // DeleteSnapshot removes a snapshot
 func (m *SnapshotManager) DeleteSnapshot(id string) error {
-	snapshot, exists := m.snapshots[id]
+	_, exists := m.snapshots[id]
 	if !exists {
 		return ErrSnapshotNotFound
-	}
-
-	// Remove from tag index if tagged
-	if snapshot.Tag != "" {
-		delete(m.tagIndex, snapshot.Tag)
 	}
 
 	// Remove from snapshots map
@@ -248,16 +245,43 @@ func (m *SnapshotManager) DeleteSnapshot(id string) error {
 	return nil
 }
 
-// isValidTag checks if a tag contains only allowed characters
-func isValidTag(tag string) bool {
-	if len(tag) == 0 || len(tag) > 64 {
-		return false
+// NewSnapshotData creates a new SnapshotData instance
+func NewSnapshotData(id, message string, author string, tree []byte) *SnapshotData {
+	return &SnapshotData{
+		ID:        id,
+		Message:   message,
+		Timestamp: time.Now(),
+		Author:    author,
+		Tree:      tree,
+	}
+}
+
+// Save writes the snapshot data to disk
+func (s *SnapshotData) Save(path string) error {
+	data, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal snapshot data: %w", err)
 	}
 
-	for _, r := range tag {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.') {
-			return false
-		}
+	snapshotFile := filepath.Join(path, s.ID+".json")
+	if err := os.WriteFile(snapshotFile, data, 0644); err != nil {
+		return fmt.Errorf("failed to write snapshot file: %w", err)
 	}
-	return true
+
+	return nil
+}
+
+// Load reads a snapshot from disk
+func LoadSnapshot(path string) (*SnapshotData, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read snapshot file: %w", err)
+	}
+
+	var snapshot SnapshotData
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return nil, fmt.Errorf("failed to parse snapshot data: %w", err)
+	}
+
+	return &snapshot, nil
 }

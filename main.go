@@ -8,12 +8,12 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
-//go:embed all:frontend/dist
+//go:embed all:src/frontend/dist
 var assets embed.FS
 
 func main() {
 	// Create an instance of the app structure
-	application := NewApp()
+	app := NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{
@@ -24,13 +24,13 @@ func main() {
 			Assets: assets,
 		},
 		// BackgroundColour: &options.RGBA{R: 128, G: 38, B: 54, A: 1},
-		OnStartup: application.Startup, // Ensuring Startup is correctly referenced
+		OnStartup: app.Startup,
 		Bind: []interface{}{
-			application,
+			app,
 		},
 	})
 
 	if err != nil {
 		println("Error:", err.Error())
 	}
-}
+} 
