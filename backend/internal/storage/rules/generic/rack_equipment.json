@@ -1,0 +1,52 @@
+{
+    "name": "Generic Rack Equipment Rules",
+    "description": "Common validation rules for any equipment that can be mounted in a rack",
+    "rules": [
+        {
+            "property": "rack_position",
+            "required": true,
+            "type": "number",
+            "min": 1,
+            "max": 48
+        },
+        {
+            "property": "rack_units",
+            "required": true,
+            "type": "number",
+            "min": 1,
+            "max": 48
+        },
+        {
+            "property": "power_requirements",
+            "required": true,
+            "type": "number",
+            "min": 0
+        },
+        {
+            "property": "status",
+            "required": true,
+            "type": "string",
+            "enum": [
+                "operational",
+                "maintenance",
+                "failed",
+                "decommissioned"
+            ]
+        },
+        {
+            "property": "last_maintenance",
+            "required": false,
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        {
+            "property": "next_maintenance",
+            "required": false,
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "dependencies": [
+                "last_maintenance"
+            ]
+        }
+    ]
+}

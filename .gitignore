@@ -1,6 +1,6 @@
-build/bin
+src/build/bin
 node_modules
-frontend/dist
+src/frontend/dist
 *.md5
 src/backend/coverage
 src/backend/storage_coverage

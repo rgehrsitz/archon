@@ -1,0 +1,68 @@
+{
+    "name": "Power Supply Rules",
+    "description": "Specific validation rules for power supplies",
+    "extends": "rack_equipment",
+    "rules": [
+        {
+            "property": "wattage",
+            "required": true,
+            "type": "number",
+            "min": 0
+        },
+        {
+            "property": "efficiency_rating",
+            "required": true,
+            "type": "string",
+            "enum": [
+                "80+",
+                "80+ Bronze",
+                "80+ Silver",
+                "80+ Gold",
+                "80+ Platinum",
+                "80+ Titanium"
+            ]
+        },
+        {
+            "property": "input_voltage",
+            "required": true,
+            "type": "number",
+            "min": 100,
+            "max": 240
+        },
+        {
+            "property": "output_voltage",
+            "required": true,
+            "type": "number",
+            "enum": [
+                3.3,
+                5,
+                12
+            ]
+        },
+        {
+            "property": "redundancy_mode",
+            "required": true,
+            "type": "string",
+            "enum": [
+                "none",
+                "1+1",
+                "2+1",
+                "2+2"
+            ]
+        },
+        {
+            "property": "temperature",
+            "required": false,
+            "type": "number",
+            "min": 0,
+            "max": 100
+        },
+        {
+            "property": "fan_speed",
+            "required": false,
+            "type": "number",
+            "min": 0,
+            "max": 100
+        }
+    ]
+}
