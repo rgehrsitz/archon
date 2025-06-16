@@ -8,7 +8,7 @@
   let loadingDetails = $state(false);
   let errorDetails = $state<string | null>(null);
 
-  async function handleSelect(event: CustomEvent) {
+  async function handleSelect(event: CustomEvent<{ id: string }>) {
     selectedId = event.detail.id;
     selectedComponent = null;
     errorDetails = null;
@@ -88,4 +88,4 @@
       </div>
     </div>
   </div>
-</Layout> 
+</Layout>

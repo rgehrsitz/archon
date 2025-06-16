@@ -2,7 +2,8 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
   
-  const dispatch = createEventDispatcher();
+  // Dispatch payload directly
+  const dispatch = createEventDispatcher<{ select: { id: string } }>();
   let expandedNodes = $state(new Set<string>());
   let components = $state<Array<{id: string, name: string, type: string, parentId: string | null}>>([]);
   let loading = $state(true);
@@ -48,6 +49,7 @@
   }
 
   function handleSelect(componentId: string) {
+    // Dispatch the payload directly
     dispatch('select', { id: componentId });
   }
 
@@ -96,25 +98,25 @@
     <h2 class="text-lg font-semibold text-slate-800">Component Hierarchy</h2>
     <button
       class="px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 text-sm font-medium"
-      on:click={() => showNewComponentForm = !showNewComponentForm}
+      onclick={() => showNewComponentForm = !showNewComponentForm}
     >
       {showNewComponentForm ? 'Cancel' : 'New Component'}
     </button>
   </div>
 
   {#if showNewComponentForm}
-    <form class="p-4 space-y-3 border-b border-slate-200" on:submit|preventDefault={createComponent}>
+    <form class="p-4 space-y-3 border-b border-slate-200" onsubmit={createComponent}>
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">Name</label>
-        <input type="text" class="mt-1 block w-full rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" bind:value={newComponent.name} required />
+        <label for="componentName" class="block text-sm font-medium text-slate-700 dark:text-slate-200">Name</label>
+        <input type="text" id="componentName" class="mt-1 block w-full rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" bind:value={newComponent.name} required />
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">Type</label>
-        <input type="text" class="mt-1 block w-full rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" bind:value={newComponent.type} required />
+        <label for="componentType" class="block text-sm font-medium text-slate-700 dark:text-slate-200">Type</label>
+        <input type="text" id="componentType" class="mt-1 block w-full rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" bind:value={newComponent.type} required />
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">Parent</label>
-        <select class="mt-1 block w-full rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" bind:value={newComponent.parentId}>
+        <label for="componentParent" class="block text-sm font-medium text-slate-700 dark:text-slate-200">Parent</label>
+        <select id="componentParent" class="mt-1 block w-full rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" bind:value={newComponent.parentId}>
           <option value={null}>None (root)</option>
           {#each components as c}
             <option value={c.id}>{c.name} ({c.type})</option>
@@ -128,7 +130,7 @@
         <button type="submit" class="px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 text-sm font-medium" disabled={creating}>
           {creating ? 'Creating...' : 'Create'}
         </button>
-        <button type="button" class="px-3 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 text-sm font-medium" on:click={() => showNewComponentForm = false}>
+        <button type="button" class="px-3 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 text-sm font-medium" onclick={() => showNewComponentForm = false}>
           Cancel
         </button>
       </div>
@@ -147,7 +149,7 @@
             <div class="flex items-center py-1">
               <button
                 class="p-1 rounded hover:bg-slate-100"
-                on:click={() => toggleNode(component.id)}
+                onclick={() => toggleNode(component.id)}
                 aria-label="Toggle component {component.name}"
               >
                 <svg
@@ -164,10 +166,10 @@
               <button
                 class="flex-1 px-2 py-1 text-left rounded hover:bg-slate-100"
                 draggable="true"
-                on:dragstart={(e) => handleDragStart(e, component.id)}
-                on:drop={(e) => handleDrop(e, component.id)}
-                on:dragover={handleDragOver}
-                on:click={() => handleSelect(component.id)}
+                ondragstart={(e) => handleDragStart(e, component.id)}
+                ondrop={(e) => handleDrop(e, component.id)}
+                ondragover={handleDragOver}
+                onclick={() => handleSelect(component.id)}
                 aria-label="Select component {component.name}"
               >
                 <span class="font-medium">{component.name}</span>
@@ -181,7 +183,7 @@
                   <div class="flex items-center py-1">
                     <button
                       class="p-1 rounded hover:bg-slate-100"
-                      on:click={() => toggleNode(child.id)}
+                      onclick={() => toggleNode(child.id)}
                       aria-label="Toggle component {child.name}"
                     >
                       <svg
@@ -198,10 +200,10 @@
                     <button
                       class="flex-1 px-2 py-1 text-left rounded hover:bg-slate-100"
                       draggable="true"
-                      on:dragstart={(e) => handleDragStart(e, child.id)}
-                      on:drop={(e) => handleDrop(e, child.id)}
-                      on:dragover={handleDragOver}
-                      on:click={() => handleSelect(child.id)}
+                      ondragstart={(e) => handleDragStart(e, child.id)}
+                      ondrop={(e) => handleDrop(e, child.id)}
+                      ondragover={handleDragOver}
+                      onclick={() => handleSelect(child.id)}
                       aria-label="Select component {child.name}"
                     >
                       <span class="font-medium">{child.name}</span>
@@ -222,4 +224,4 @@
   .component-tree {
     color: #64748b;
   }
-</style> 
+</style>

@@ -71,7 +71,7 @@
   <!-- Install Plugin Form -->
   <div class="bg-white rounded-lg shadow p-6 mb-6">
     <h2 class="text-lg font-semibold mb-4">Install New Plugin</h2>
-    <form on:submit|preventDefault={handleInstallPlugin} class="space-y-4">
+    <form onsubmit={handleInstallPlugin} class="space-y-4">
       <div>
         <label for="pluginUrl" class="block text-sm font-medium text-slate-600">Plugin URL</label>
         <input
@@ -93,9 +93,11 @@
   </div>
 
   <!-- Plugins List -->
-  <div class="bg-white rounded-lg shadow">    <div class="px-6 py-4 border-b border-slate-200">
+  <div class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b border-slate-200">
       <h2 class="text-lg font-semibold">Installed Plugins</h2>
-    </div>{#if loading}
+    </div>
+    {#if loading}
       <div class="p-4 text-slate-500">Loading plugins...</div>
     {:else if error}
       <div class="p-4 text-red-500">Error: {error}</div>
@@ -103,7 +105,8 @@
       <div class="p-4 text-slate-500">No plugins installed</div>
     {:else}
       <div class="divide-y divide-slate-200">
-        {#each plugins as plugin (plugin.id)}          <div class="p-4 hover:bg-slate-50">
+        {#each plugins as plugin (plugin.id)}
+          <div class="p-4 hover:bg-slate-50">
             <div class="flex items-center justify-between">
               <div>
                 <h3 class="text-lg font-medium text-slate-900">{plugin.name}</h3>
@@ -113,17 +116,19 @@
                 </div>
               </div>
               <div class="flex items-center space-x-4">
-                <label class="relative inline-flex items-center cursor-pointer">
+                <label for="pluginEnabled-{plugin.id}" class="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
+                    id="pluginEnabled-{plugin.id}"
                     class="sr-only peer"
                     checked={plugin.enabled}
-                    on:change={(e) => handleTogglePlugin(plugin.id, e.currentTarget.checked)}
-                  />                  <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    onchange={(e) => handleTogglePlugin(plugin.id, e.currentTarget.checked)}
+                  />
+                  <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                   <span class="ml-3 text-sm font-medium text-slate-900">Enabled</span>
                 </label>
                 <button
-                  on:click={() => handleUninstallPlugin(plugin.id)}
+                  onclick={() => handleUninstallPlugin(plugin.id)}
                   class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 >
                   Uninstall
@@ -135,4 +140,4 @@
       </div>
     {/if}
   </div>
-</div> 
+</div>

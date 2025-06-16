@@ -49,7 +49,8 @@
   }
 
   async function handleDeleteSnapshot(id: string) {
-    if (!confirm('Are you sure you want to delete this snapshot?')) return;    try {
+    if (!confirm('Are you sure you want to delete this snapshot?')) return;
+    try {
       // Mock deletion logic
       snapshots = snapshots.filter(snapshot => snapshot.id !== id);
     } catch (error) {
@@ -74,9 +75,10 @@
   <!-- Create Snapshot Form -->
   <div class="bg-white rounded-lg shadow p-6 mb-6">
     <h2 class="text-lg font-semibold mb-4">Create New Snapshot</h2>
-    <form on:submit|preventDefault={handleCreateSnapshot} class="space-y-4">
+    <form onsubmit={handleCreateSnapshot} class="space-y-4">
       <div>
-        <label for="tag" class="block text-sm font-medium text-slate-600">Tag</label>        <input
+        <label for="tag" class="block text-sm font-medium text-slate-600">Tag</label>
+        <input
           type="text"
           id="tag"
           bind:value={newTag}
@@ -86,7 +88,8 @@
         />
       </div>
       <div>
-        <label for="message" class="block text-sm font-medium text-slate-600">Message</label>        <textarea
+        <label for="message" class="block text-sm font-medium text-slate-600">Message</label>
+        <textarea
           id="message"
           bind:value={newMessage}
           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -105,7 +108,8 @@
   </div>
 
   <!-- Snapshots List -->
-  <div class="bg-white rounded-lg shadow">    <div class="px-6 py-4 border-b border-slate-200">
+  <div class="bg-white rounded-lg shadow">
+    <div class="px-6 py-4 border-b border-slate-200">
       <h2 class="text-lg font-semibold">Snapshots History</h2>
     </div>
     {#if loading}
@@ -128,13 +132,13 @@
               </div>
               <div class="flex space-x-2">
                 <button
-                  on:click={() => handleRestoreSnapshot(snapshot.id)}
+                  onclick={() => handleRestoreSnapshot(snapshot.id)}
                   class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Restore
                 </button>
                 <button
-                  on:click={() => handleDeleteSnapshot(snapshot.id)}
+                  onclick={() => handleDeleteSnapshot(snapshot.id)}
                   class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 >
                   Delete
@@ -146,4 +150,4 @@
       </div>
     {/if}
   </div>
-</div> 
+</div>
