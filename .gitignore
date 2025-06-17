@@ -6,3 +6,8 @@ src/backend/coverage
 src/backend/storage_coverage
 src/storage_coverage/attachments
 storage_coverage/attachments
+build/bin/archon.exe
+build/appicon.png
+build/
+build/windows/wails.exe.manifest
+build/windows/info.json

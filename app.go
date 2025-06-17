@@ -2,6 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/rgehrsitz/archon/model"
@@ -36,6 +41,12 @@ func (a *App) Startup(ctx context.Context) {
 	a.configVault = storage.NewConfigVault()
 	a.snapshotMgr = snapshot.NewManager(a.configVault)
 	a.pluginMgr = plugin.NewPluginManager()
+
+	// Initialize with sample data for demonstration
+	if err := a.InitializeSampleProject(); err != nil {
+		// Log error but don't fail startup
+		fmt.Printf("Warning: Failed to initialize sample project: %v\n", err)
+	}
 }
 
 // LoadProject loads a project from the given path
@@ -88,4 +99,200 @@ func (a *App) ExecutePlugin(pluginID string, params map[string]interface{}) (int
 	defer a.mu.RUnlock()
 
 	return a.pluginMgr.Execute(pluginID, params)
+}
+
+// CreateComponent creates a new component in the current project
+func (a *App) CreateComponent(component *model.Component) (*model.Component, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.configVault == nil {
+		return nil, errors.New("no project loaded")
+	}
+
+	// Validate the component
+	if err := component.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid component: %w", err)
+	}
+
+	// Add to vault
+	if err := a.configVault.AddComponent(component); err != nil {
+		return nil, fmt.Errorf("failed to add component: %w", err)
+	}
+
+	return component, nil
+}
+
+// CreateComponentSimple creates a new component with basic parameters
+func (a *App) CreateComponentSimple(name, componentType, parentID string) (*model.Component, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.configVault == nil {
+		return nil, errors.New("no project loaded")
+	}
+
+	// Generate a new UUID for the component
+	id := model.GenerateID()
+
+	// Create the component
+	component := model.NewComponent(id, name, componentType)
+	if parentID != "" {
+		component.ParentID = parentID
+	}
+
+	// Validate the component
+	if err := component.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid component: %w", err)
+	}
+
+	// Add to vault
+	if err := a.configVault.AddComponent(component); err != nil {
+		return nil, fmt.Errorf("failed to add component: %w", err)
+	}
+
+	return component, nil
+}
+
+// UpdateComponent updates an existing component
+func (a *App) UpdateComponent(id string, updates *model.Component) (*model.Component, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.configVault == nil {
+		return nil, errors.New("no project loaded")
+	}
+
+	component, err := a.configVault.GetComponent(id)
+	if err != nil {
+		return nil, fmt.Errorf("component not found: %w", err)
+	}
+
+	// Apply updates
+	if updates.Name != "" {
+		component.Name = updates.Name
+	}
+	if updates.Type != "" {
+		component.Type = updates.Type
+	}
+	if updates.Description != "" {
+		component.Description = updates.Description
+	}
+	if updates.ParentID != "" {
+		component.ParentID = updates.ParentID
+	}
+	if updates.Properties != nil {
+		component.Properties = updates.Properties
+	}
+	if updates.Metadata != nil {
+		component.Metadata = updates.Metadata
+	}
+
+	// Validate and save
+	if err := component.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid component after update: %w", err)
+	}
+
+	if err := a.configVault.UpdateComponent(component); err != nil {
+		return nil, fmt.Errorf("failed to update component: %w", err)
+	}
+
+	return component, nil
+}
+
+// DeleteComponent removes a component from the current project
+func (a *App) DeleteComponent(id string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.configVault == nil {
+		return errors.New("no project loaded")
+	}
+
+	return a.configVault.DeleteComponent(id)
+}
+
+// GetComponent returns a specific component by ID
+func (a *App) GetComponent(id string) (*model.Component, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	if a.configVault == nil {
+		return nil, errors.New("no project loaded")
+	}
+
+	return a.configVault.GetComponent(id)
+}
+
+// CreateProject creates a new project at the specified path
+func (a *App) CreateProject(path, name string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	// Create project directory if it doesn't exist
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		return fmt.Errorf("failed to create project directory: %w", err)
+	}
+
+	// Initialize the ConfigVault with the new path
+	a.configVault = storage.NewConfigVault()
+
+	// Create a root component
+	rootComponent := model.NewComponent("root", "Root", "system")
+	rootComponent.Description = "Root component for " + name
+
+	// Create project file with initial root component
+	components := []*model.Component{rootComponent}
+	data, err := json.MarshalIndent(components, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal initial project data: %w", err)
+	}
+
+	projectFile := filepath.Join(path, "project.json")
+	if err := os.WriteFile(projectFile, data, 0o644); err != nil {
+		return fmt.Errorf("failed to write project file: %w", err)
+	}
+
+	// Load the newly created project
+	if err := a.configVault.Load(path); err != nil {
+		return fmt.Errorf("failed to load newly created project: %w", err)
+	}
+
+	a.currentProject = path
+	return nil
+}
+
+// InitializeSampleProject creates a sample project for demonstration
+func (a *App) InitializeSampleProject() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	// Create sample components
+	root := model.NewComponent("root", "Sample Lab Equipment", "system")
+	root.Description = "Sample lab equipment hierarchy"
+
+	microscope := model.NewComponent("microscope-001", "Zeiss Microscope", "microscope")
+	microscope.ParentID = "root"
+	microscope.Properties = map[string]interface{}{
+		"model":         "Zeiss Axio Observer",
+		"magnification": "1000x",
+		"status":        "operational",
+	}
+
+	camera := model.NewComponent("camera-001", "Digital Camera", "camera")
+	camera.ParentID = "microscope-001"
+	camera.Properties = map[string]interface{}{
+		"resolution": "4K",
+		"sensor":     "CMOS",
+	}
+
+	// Create ConfigVault and initialize with sample components
+	a.configVault = storage.NewConfigVault()
+	components := []*model.Component{root, microscope, camera}
+
+	if err := a.configVault.InitializeInMemory(components); err != nil {
+		return fmt.Errorf("failed to initialize sample project: %w", err)
+	}
+
+	return nil
 }

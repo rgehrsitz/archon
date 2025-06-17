@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/xeipuuv/gojsonschema"
 )
 
 // Component errors
 var (
-	ErrInvalidComponent = errors.New("invalid component")
-	ErrInvalidID        = errors.New("invalid component ID")
-	ErrDuplicateID      = errors.New("duplicate component ID")
+	ErrInvalidComponent  = errors.New("invalid component")
+	ErrInvalidID         = errors.New("invalid component ID")
+	ErrDuplicateID       = errors.New("duplicate component ID")
 	ErrComponentNotFound = errors.New("component not found")
 )
 
@@ -300,4 +301,9 @@ func (t *ComponentTree) UpdateParent(id, newParentID string) error {
 	// Update the parent ID
 	component.ParentID = newParentID
 	return nil
+}
+
+// GenerateID generates a new unique ID for a component
+func GenerateID() string {
+	return uuid.New().String()
 }

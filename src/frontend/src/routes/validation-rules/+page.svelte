@@ -1,25 +1,77 @@
 <!-- +page.svelte -->
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import ValidationRuleManager from '$lib/components/ValidationRuleManager.svelte';
-  
-  let componentTypes = $state<string[]>([]);
-  let selectedType = $state<string | null>(null);
-  let isGeneric = $state(false);
-  let loading = $state(true);
+  import { onMount } from "svelte";
+
+  let rules = $state([
+    {
+      id: "1",
+      name: "Required Properties",
+      description: "Ensure all components have required properties",
+      enabled: true,
+      category: "validation",
+    },
+    {
+      id: "2",
+      name: "Naming Convention",
+      description: "Component names follow naming conventions",
+      enabled: false,
+      category: "validation",
+    },
+  ]);
+
+  let newRule = $state({
+    name: "",
+    description: "",
+    enabled: true,
+    category: "validation",
+  });
+
+  let showNewRuleForm = $state(false);
+  let loading = $state(false);
   let error = $state<string | null>(null);
-  
-  onMount(async () => {
+
+  function toggleRule(ruleId: string) {
+    const rule = rules.find((r) => r.id === ruleId);
+    if (rule) {
+      rule.enabled = !rule.enabled;
+      rules = [...rules]; // Trigger reactivity
+    }
+  }
+
+  async function createRule() {
+    if (!newRule.name.trim()) return;
+
+    const rule = {
+      id: Date.now().toString(),
+      ...newRule,
+    };
+
+    rules = [rule, ...rules];
+    newRule = {
+      name: "",
+      description: "",
+      enabled: true,
+      category: "validation",
+    };
+    showNewRuleForm = false;
+  }
+
+  async function runValidation() {
+    loading = true;
+    error = null;
     try {
-      const response = await fetch('/api/component-types');
-      if (!response.ok) throw new Error('Failed to fetch component types');
-      componentTypes = await response.json();
-      loading = false;
+      // Mock validation run
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      console.log(
+        "Running validation with enabled rules:",
+        rules.filter((r) => r.enabled)
+      );
     } catch (e: unknown) {
-      error = e instanceof Error ? e.message : 'An unknown error occurred';
+      error = e instanceof Error ? e.message : "Validation failed";
+    } finally {
       loading = false;
     }
-  });
+  }
 </script>
 
 <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -36,8 +88,17 @@
           <div class="rounded-md bg-red-50 dark:bg-red-900 p-4 mb-6">
             <div class="flex">
               <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                <svg
+                  class="h-5 w-5 text-red-400"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clip-rule="evenodd"
+                  />
                 </svg>
               </div>
               <div class="ml-3">
@@ -54,16 +115,34 @@
 
         {#if loading}
           <div class="flex justify-center items-center py-12">
-            <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            <svg
+              class="animate-spin h-8 w-8 text-indigo-600"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
             </svg>
           </div>
         {:else}
           <div class="space-y-6">
             <!-- Component Type Selection -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label
+                class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
                 Component Type
               </label>
               <select
@@ -84,20 +163,19 @@
                 bind:checked={isGeneric}
                 class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
-              <label class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+              <label
+                class="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+              >
                 Generic Rules
               </label>
             </div>
 
             {#if selectedType}
-              <ValidationRuleManager
-                componentType={selectedType}
-                {isGeneric}
-              />
+              <ValidationRuleManager componentType={selectedType} {isGeneric} />
             {/if}
           </div>
         {/if}
       </div>
     </div>
   </div>
-</div> 
+</div>
