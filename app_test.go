@@ -58,14 +58,13 @@ func TestGetComponentTree(t *testing.T) {
 	app := NewApp()
 	ctx := context.Background()
 	app.Startup(ctx) // Corrected to use exported Startup method
-
-	// Test getting component tree without loaded project
+	// Test getting component tree with empty project (should succeed)
 	tree, err := app.GetComponentTree()
-	if err == nil {
-		t.Error("Expected error when getting component tree without loaded project")
+	if err != nil {
+		t.Errorf("Unexpected error when getting component tree: %v", err)
 	}
-	if tree != nil {
-		t.Error("Expected nil tree when getting component tree without loaded project")
+	if tree == nil {
+		t.Error("Expected non-nil tree even for empty project")
 	}
 
 	// TODO: Add test for successful component tree retrieval once storage package is implemented
@@ -75,14 +74,13 @@ func TestCreateSnapshot(t *testing.T) {
 	app := NewApp()
 	ctx := context.Background()
 	app.Startup(ctx) // Corrected to use exported Startup method
-
-	// Test creating snapshot without loaded project
+	// Test creating snapshot with initialized project (should succeed)
 	snap, err := app.CreateSnapshot("test snapshot")
-	if err == nil {
-		t.Error("Expected error when creating snapshot without loaded project")
+	if err != nil {
+		t.Errorf("Unexpected error when creating snapshot: %v", err)
 	}
-	if snap != nil {
-		t.Error("Expected nil snapshot when creating snapshot without loaded project")
+	if snap == nil {
+		t.Error("Expected non-nil snapshot")
 	}
 
 	// TODO: Add test for successful snapshot creation once snapshot package is implemented
@@ -92,14 +90,13 @@ func TestGetSnapshots(t *testing.T) {
 	app := NewApp()
 	ctx := context.Background()
 	app.Startup(ctx) // Corrected to use exported Startup method
-
-	// Test getting snapshots without loaded project
+	// Test getting snapshots with initialized project (should succeed)
 	snapshots, err := app.GetSnapshots()
-	if err == nil {
-		t.Error("Expected error when getting snapshots without loaded project")
+	if err != nil {
+		t.Errorf("Unexpected error when getting snapshots: %v", err)
 	}
-	if snapshots != nil {
-		t.Error("Expected nil snapshots when getting snapshots without loaded project")
+	if snapshots == nil {
+		t.Error("Expected non-nil snapshots slice even if empty")
 	}
 
 	// TODO: Add test for successful snapshot retrieval once snapshot package is implemented

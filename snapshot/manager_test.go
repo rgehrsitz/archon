@@ -17,7 +17,8 @@ func setupTestProject(t *testing.T) (*storage.ConfigVault, string) {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	// Create test project file
+	// Create test project structure
+	// Create components.json
 	root := model.NewComponent("root", "Root", "system")
 	components := []*model.Component{root}
 
@@ -26,13 +27,36 @@ func setupTestProject(t *testing.T) (*storage.ConfigVault, string) {
 		t.Fatalf("Failed to marshal test data: %v", err)
 	}
 
-	projectFile := filepath.Join(dir, "project.json")
-	if err := os.WriteFile(projectFile, data, 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
+	componentsFile := filepath.Join(dir, "components.json")
+	if err := os.WriteFile(componentsFile, data, 0o644); err != nil {
+		t.Fatalf("Failed to write components file: %v", err)
+	}
+
+	// Create archon.json
+	config := storage.ProjectConfig{
+		Version: "1.0",
+		Name:    "Test Project",
+	}
+	configData, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("Failed to marshal config: %v", err)
+	}
+
+	configFile := filepath.Join(dir, "archon.json")
+	if err := os.WriteFile(configFile, configData, 0o644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// Create attachments directory
+	if err := os.MkdirAll(filepath.Join(dir, "attachments"), 0o755); err != nil {
+		t.Fatalf("Failed to create attachments dir: %v", err)
 	}
 
 	// Create ConfigVault
-	vault := storage.NewConfigVault()
+	vault, err := storage.NewConfigVault("")
+	if err != nil {
+		t.Fatalf("Failed to create ConfigVault: %v", err)
+	}
 	if err := vault.Load(dir); err != nil {
 		t.Fatalf("Failed to load project: %v", err)
 	}
@@ -41,7 +65,10 @@ func setupTestProject(t *testing.T) (*storage.ConfigVault, string) {
 }
 
 func TestNewManager(t *testing.T) {
-	vault := storage.NewConfigVault()
+	vault, err := storage.NewConfigVault("")
+	if err != nil {
+		t.Fatalf("Failed to create ConfigVault: %v", err)
+	}
 	manager := NewManager(vault)
 
 	if manager == nil {
@@ -177,9 +204,14 @@ func TestRestore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
-
-	// Modify tree
+	// Modify tree - first add a component, then modify it
 	component := model.NewComponent("test", "Test", "device")
+	if err := vault.AddComponent(component); err != nil {
+		t.Fatalf("AddComponent() error = %v", err)
+	}
+
+	// Now update the component
+	component.Name = "Updated Test"
 	if err := vault.UpdateComponent(component); err != nil {
 		t.Fatalf("UpdateComponent() error = %v", err)
 	}

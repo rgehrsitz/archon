@@ -21,8 +21,8 @@ type Attachment struct {
 const attachmentsMetadataFile = "attachments.json"
 
 // LoadAttachments loads attachment metadata from the project's attachments directory.
-func (p *Project) LoadAttachments() ([]Attachment, error) {
-	metaPath := filepath.Join(p.GetAttachmentsPath(), attachmentsMetadataFile)
+func (v *ConfigVault) LoadAttachments() ([]Attachment, error) {
+	metaPath := filepath.Join(v.GetAttachmentsPath(), attachmentsMetadataFile)
 	f, err := os.Open(metaPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -39,8 +39,8 @@ func (p *Project) LoadAttachments() ([]Attachment, error) {
 }
 
 // SaveAttachments writes attachment metadata to the project's attachments directory.
-func (p *Project) SaveAttachments(attachments []Attachment) error {
-	metaPath := filepath.Join(p.GetAttachmentsPath(), attachmentsMetadataFile)
+func (v *ConfigVault) SaveAttachments(attachments []Attachment) error {
+	metaPath := filepath.Join(v.GetAttachmentsPath(), attachmentsMetadataFile)
 	f, err := os.Create(metaPath)
 	if err != nil {
 		return fmt.Errorf("failed to create attachments metadata: %w", err)
@@ -50,15 +50,15 @@ func (p *Project) SaveAttachments(attachments []Attachment) error {
 	enc.SetIndent("", "  ")
 	err = enc.Encode(attachments)
 	if err == nil {
-		p.changeCount++
-		p.autoSnapshot("")
+		v.changeCount++
+		v.autoSnapshot("")
 	}
 	return err
 }
 
 // AddAttachment copies a file into the attachments directory and updates metadata.
-func (p *Project) AddAttachment(srcPath string) error {
-	attachmentsDir := p.GetAttachmentsPath()
+func (v *ConfigVault) AddAttachment(srcPath string) error {
+	attachmentsDir := v.GetAttachmentsPath()
 	base := filepath.Base(srcPath)
 	dstPath := filepath.Join(attachmentsDir, base)
 
@@ -77,9 +77,8 @@ func (p *Project) AddAttachment(srcPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to copy file: %w", err)
 	}
-
 	// Update metadata
-	attachments, err := p.LoadAttachments()
+	attachments, err := v.LoadAttachments()
 	if err != nil {
 		return err
 	}
@@ -88,17 +87,17 @@ func (p *Project) AddAttachment(srcPath string) error {
 		Size:      size,
 		CreatedAt: time.Now().UTC(),
 	})
-	return p.SaveAttachments(attachments)
+	return v.SaveAttachments(attachments)
 }
 
 // RemoveAttachment deletes a file from the attachments directory and updates metadata.
-func (p *Project) RemoveAttachment(name string) error {
-	attachmentsDir := p.GetAttachmentsPath()
+func (v *ConfigVault) RemoveAttachment(name string) error {
+	attachmentsDir := v.GetAttachmentsPath()
 	filePath := filepath.Join(attachmentsDir, name)
 	if err := os.Remove(filePath); err != nil {
 		return fmt.Errorf("failed to remove attachment: %w", err)
 	}
-	attachments, err := p.LoadAttachments()
+	attachments, err := v.LoadAttachments()
 	if err != nil {
 		return err
 	}
@@ -108,5 +107,5 @@ func (p *Project) RemoveAttachment(name string) error {
 			newAttachments = append(newAttachments, att)
 		}
 	}
-	return p.SaveAttachments(newAttachments)
+	return v.SaveAttachments(newAttachments)
 }

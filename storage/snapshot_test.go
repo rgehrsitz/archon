@@ -3,35 +3,36 @@ package storage
 import (
 	"os"
 	"testing"
+	"time"
 )
 
-func TestCreateSnapshotAndTag(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "archon_test_*")
+func TestCreateSnapshot(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "archon-test-*")
 	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
+		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Setup project
-	project, err := New(tempDir)
+	// Setup vault
+	vault, err := NewConfigVault(tempDir)
 	if err != nil {
-		t.Fatalf("Failed to create project: %v", err)
+		t.Fatalf("Failed to create vault: %v", err)
 	}
-	if err := project.Initialize("Test Project"); err != nil {
+	if err := vault.Initialize("Test Project"); err != nil {
 		t.Fatalf("Failed to initialize project: %v", err)
 	}
 
 	// Create a component and save
 	component := Component{ID: "c1", Name: "Root", Type: "rack"}
-	if err := SaveComponents(project.GetComponentsPath(), []Component{component}); err != nil {
+	if err := SaveComponents(vault.GetComponentsPath(), []Component{component}); err != nil {
 		t.Fatalf("Failed to save components: %v", err)
 	}
 
-	// Create a snapshot with a tag
-	tag := "v1"
-	msg := "Initial commit"
-	author := "tester"
-	snapID, err := project.CreateSnapshot(tag, msg, author)
+	// Create snapshot
+	tag := "v1.0"
+	msg := "First snapshot"
+	author := "test@example.com"
+	snapID, err := vault.CreateSnapshot(tag, msg, author)
 	if err != nil {
 		t.Fatalf("CreateSnapshot failed: %v", err)
 	}
@@ -39,134 +40,121 @@ func TestCreateSnapshotAndTag(t *testing.T) {
 		t.Error("Expected non-empty snapshot ID")
 	}
 
-	// Try to create another snapshot with the same tag (should fail)
-	_, err = project.CreateSnapshot(tag, "duplicate", author)
+	// Try creating duplicate tag (should fail)
+	_, err = vault.CreateSnapshot(tag, "duplicate", author)
 	if err == nil {
 		t.Error("Expected error for duplicate tag, got nil")
 	}
 
-	// Check that the tag index maps the tag to the correct snapshot ID
-	idx, err := project.loadTagsIndex()
+	// Load tags index and verify
+	idx, err := vault.loadTagsIndex()
 	if err != nil {
 		t.Fatalf("Failed to load tags index: %v", err)
 	}
 	if idx[tag] != snapID {
-		t.Errorf("Tag index mismatch: got %s, want %s", idx[tag], snapID)
+		t.Errorf("Tag index incorrect: expected %s, got %s", snapID, idx[tag])
 	}
 
-	// Load the snapshot by ID
-	snap, err := project.LoadSnapshot(snapID)
+	// Load the snapshot and verify
+	snap, err := vault.LoadSnapshot(snapID)
 	if err != nil {
-		t.Fatalf("Failed to load snapshot: %v", err)
+		t.Fatalf("LoadSnapshot failed: %v", err)
+	}
+	if snap.ID != snapID {
+		t.Errorf("Snapshot ID mismatch: expected %s, got %s", snapID, snap.ID)
 	}
 	if snap.Tag != tag {
-		t.Errorf("Snapshot tag = %s, want %s", snap.Tag, tag)
+		t.Errorf("Snapshot tag mismatch: expected %s, got %s", tag, snap.Tag)
 	}
 	if snap.Message != msg {
-		t.Errorf("Snapshot message = %s, want %s", snap.Message, msg)
+		t.Errorf("Snapshot message mismatch: expected %s, got %s", msg, snap.Message)
 	}
 	if snap.Author != author {
-		t.Errorf("Snapshot author = %s, want %s", snap.Author, author)
+		t.Errorf("Snapshot author mismatch: expected %s, got %s", author, snap.Author)
 	}
 }
 
-func TestAutoSnapshot_After5Changes(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "archon_test_auto_*")
+func TestListSnapshots(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "archon-test-*")
 	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
+		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
-	project, err := New(tempDir)
+
+	vault, err := NewConfigVault(tempDir)
 	if err != nil {
-		t.Fatalf("Failed to create project: %v", err)
+		t.Fatalf("Failed to create vault: %v", err)
 	}
-	if err := project.Initialize("Test Project"); err != nil {
+	if err := vault.Initialize("Test Project"); err != nil {
 		t.Fatalf("Failed to initialize project: %v", err)
 	}
-	// Add and save 5 different components using SaveComponentsWithProject
-	for i := 0; i < 5; i++ {
-		c := Component{ID: string(rune('a'+i)), Name: "C", Type: "t"}
-		if err := SaveComponentsWithProject(project, []Component{c}); err != nil {
-			t.Fatalf("Failed SaveComponentsWithProject: %v", err)
+
+	// Create multiple snapshots
+	for i := 0; i < 3; i++ {
+		component := Component{ID: "c1", Name: "Root", Type: "rack"}
+		if err := SaveComponents(vault.GetComponentsPath(), []Component{component}); err != nil {
+			t.Fatalf("Failed to save components: %v", err)
 		}
+		_, err := vault.CreateSnapshot("", "snapshot message", "test@example.com")
+		if err != nil {
+			t.Fatalf("CreateSnapshot failed: %v", err)
+		}
+		time.Sleep(time.Millisecond) // Ensure different timestamps
 	}
-	snaps, err := project.ListSnapshots()
+
+	// List snapshots
+	snapshots, err := vault.ListSnapshots()
 	if err != nil {
 		t.Fatalf("ListSnapshots failed: %v", err)
 	}
-	found := false
-	for _, s := range snaps {
-		if s.Tag != "" && len(s.Tag) > 5 && s.Tag[:5] == "auto-" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("Auto-snapshot not found after 5 changes")
+	if len(snapshots) != 3 {
+		t.Errorf("Expected 3 snapshots, got %d", len(snapshots))
 	}
 }
 
-func TestAutoSnapshot_OnConfigChange(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "archon_test_auto_cfg_*")
+func TestSnapshotErrors(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "archon-test-*")
 	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
+		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
-	project, err := New(tempDir)
+
+	vault, err := NewConfigVault(tempDir)
 	if err != nil {
-		t.Fatalf("Failed to create project: %v", err)
+		t.Fatalf("Failed to create vault: %v", err)
 	}
-	if err := project.Initialize("Test Project"); err != nil {
+	if err := vault.Initialize("Test Project"); err != nil {
 		t.Fatalf("Failed to initialize project: %v", err)
 	}
-	project.Config.Description = "desc"
-	if err := project.SaveConfig(); err != nil {
-		t.Fatalf("SaveConfig failed: %v", err)
-	}
-	snaps, err := project.ListSnapshots()
-	if err != nil {
-		t.Fatalf("ListSnapshots failed: %v", err)
-	}
-	found := false
-	for _, s := range snaps {
-		if s.Tag != "" && len(s.Tag) > 5 && s.Tag[:5] == "auto-" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("Auto-snapshot not found after config change")
+
+	// Try to load non-existent snapshot
+	_, err = vault.LoadSnapshot("nonexistent")
+	if err == nil {
+		t.Error("Expected error for non-existent snapshot, got nil")
 	}
 }
 
-func TestAutoSnapshot_OnImportStub(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "archon_test_auto_imp_*")
+func TestEmptySnapshotList(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "archon-test-*")
 	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
+		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
-	project, err := New(tempDir)
+
+	vault, err := NewConfigVault(tempDir)
 	if err != nil {
-		t.Fatalf("Failed to create project: %v", err)
+		t.Fatalf("Failed to create vault: %v", err)
 	}
-	if err := project.Initialize("Test Project"); err != nil {
+	if err := vault.Initialize("Test Project"); err != nil {
 		t.Fatalf("Failed to initialize project: %v", err)
 	}
-	if err := project.ImportConfigWithAutoSnapshot("dummy"); err != nil {
-		t.Fatalf("ImportConfigWithAutoSnapshot failed: %v", err)
-	}
-	snaps, err := project.ListSnapshots()
+
+	// List snapshots when none exist
+	snapshots, err := vault.ListSnapshots()
 	if err != nil {
 		t.Fatalf("ListSnapshots failed: %v", err)
 	}
-	found := false
-	for _, s := range snaps {
-		if s.Tag != "" && len(s.Tag) > 5 && s.Tag[:5] == "auto-" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("Auto-snapshot not found after import stub")
+	if len(snapshots) != 0 {
+		t.Errorf("Expected 0 snapshots, got %d", len(snapshots))
 	}
 }

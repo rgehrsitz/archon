@@ -9,10 +9,10 @@ import (
 
 // Component represents a single node in the Archon hierarchy.
 type Component struct {
-	ID         string                 `json:"id"`           // Unique identifier
-	Name       string                 `json:"name"`         // Human-readable name
-	Type       string                 `json:"type"`         // Component type (e.g., rack, device)
-	ParentID   string                 `json:"parentId,omitempty"` // Parent component, empty for root
+	ID         string                 `json:"id"`                   // Unique identifier
+	Name       string                 `json:"name"`                 // Human-readable name
+	Type       string                 `json:"type"`                 // Component type (e.g., rack, device)
+	ParentID   string                 `json:"parentId,omitempty"`   // Parent component, empty for root
 	Properties map[string]interface{} `json:"properties,omitempty"` // Arbitrary key-value pairs
 	Children   []string               `json:"children,omitempty"`   // IDs of child components
 }
@@ -32,16 +32,16 @@ func LoadComponents(path string) ([]Component, error) {
 
 // SaveComponents saves the components slice to the given file path (components.json).
 // SaveComponentsWithProject saves components and increments the change counter for auto-snapshot.
-func SaveComponentsWithProject(p *Project, components []Component) error {
+func SaveComponentsWithProject(v *ConfigVault, components []Component) error {
 	data, err := json.MarshalIndent(components, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to serialize components: %w", err)
 	}
-	if err := os.WriteFile(p.GetComponentsPath(), data, 0644); err != nil {
+	if err := os.WriteFile(v.GetComponentsPath(), data, 0o644); err != nil {
 		return fmt.Errorf("failed to write components file: %w", err)
 	}
-	p.changeCount++
-	p.autoSnapshot("")
+	v.changeCount++
+	v.autoSnapshot("")
 	return nil
 }
 
@@ -51,7 +51,7 @@ func SaveComponents(path string, components []Component) error {
 	if err != nil {
 		return fmt.Errorf("failed to serialize components: %w", err)
 	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write components file: %w", err)
 	}
 	return nil

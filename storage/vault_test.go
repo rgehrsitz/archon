@@ -16,7 +16,8 @@ func setupTestProject(t *testing.T) string {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 
-	// Create test project file
+	// Create test project structure
+	// Create components.json
 	root := model.NewComponent("root", "Root", "system")
 	components := []*model.Component{root}
 
@@ -25,16 +26,40 @@ func setupTestProject(t *testing.T) string {
 		t.Fatalf("Failed to marshal test data: %v", err)
 	}
 
-	projectFile := filepath.Join(dir, "project.json")
-	if err := os.WriteFile(projectFile, data, 0644); err != nil {
-		t.Fatalf("Failed to write test file: %v", err)
+	componentsFile := filepath.Join(dir, ComponentsFile)
+	if err := os.WriteFile(componentsFile, data, 0o644); err != nil {
+		t.Fatalf("Failed to write components file: %v", err)
+	}
+
+	// Create archon.json
+	config := ProjectConfig{
+		Version: "1.0",
+		Name:    "Test Project",
+	}
+	configData, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("Failed to marshal config: %v", err)
+	}
+
+	configFile := filepath.Join(dir, ConfigFile)
+	if err := os.WriteFile(configFile, configData, 0o644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// Create attachments directory
+	if err := os.MkdirAll(filepath.Join(dir, AttachmentsDir), 0o755); err != nil {
+		t.Fatalf("Failed to create attachments dir: %v", err)
 	}
 
 	return dir
 }
 
 func TestNewConfigVault(t *testing.T) {
-	vault := NewConfigVault()
+	// Test in-memory vault
+	vault, err := NewConfigVault("")
+	if err != nil {
+		t.Fatalf("NewConfigVault() returned error: %v", err)
+	}
 	if vault == nil {
 		t.Error("NewConfigVault() returned nil")
 	}
@@ -42,7 +67,16 @@ func TestNewConfigVault(t *testing.T) {
 		t.Error("tree not initialized")
 	}
 	if vault.rootPath != "" {
-		t.Error("rootPath should be empty")
+		t.Error("rootPath should be empty for in-memory vault")
+	}
+
+	// Test with path
+	vault2, err := NewConfigVault("/test/path")
+	if err != nil {
+		t.Fatalf("NewConfigVault() with path returned error: %v", err)
+	}
+	if vault2.rootPath == "" {
+		t.Error("rootPath should be set when path provided")
 	}
 }
 
@@ -51,11 +85,13 @@ func TestLoad(t *testing.T) {
 	dir := setupTestProject(t)
 	defer os.RemoveAll(dir)
 
-	vault := NewConfigVault()
+	vault, err := NewConfigVault("")
+	if err != nil {
+		t.Fatalf("NewConfigVault() returned error: %v", err)
+	}
 
 	// Test loading valid project
-	err := vault.Load(dir)
-	if err != nil {
+	if err = vault.Load(dir); err != nil {
 		t.Errorf("Load() error = %v", err)
 	}
 	if vault.rootPath != dir {
@@ -66,9 +102,8 @@ func TestLoad(t *testing.T) {
 	}
 
 	// Test loading non-existent project
-	err = vault.Load("nonexistent")
-	if err == nil {
-		t.Error("Expected error when loading non-existent project")
+	if err = vault.Load("/non/existent/path"); err == nil {
+		t.Error("Load() should fail for non-existent path")
 	}
 }
 
@@ -77,123 +112,124 @@ func TestSave(t *testing.T) {
 	dir := setupTestProject(t)
 	defer os.RemoveAll(dir)
 
-	vault := NewConfigVault()
-
-	// Load project
-	err := vault.Load(dir)
+	vault, err := NewConfigVault("")
 	if err != nil {
+		t.Fatalf("NewConfigVault() returned error: %v", err)
+	}
+
+	// Load project first
+	if err = vault.Load(dir); err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	// Modify tree
-	component := model.NewComponent("test", "Test", "device")
-	vault.tree.AddComponent(component)
-
-	// Save changes
-	err = vault.Save()
-	if err != nil {
-		t.Errorf("Save() error = %v", err)
+	// Add a component
+	component := model.NewComponent("test-comp", "Test Component", "test")
+	if err = vault.AddComponent(component); err != nil {
+		t.Errorf("AddComponent() error = %v", err)
 	}
 
-	// Verify changes were saved
-	vault2 := NewConfigVault()
-	err = vault2.Load(dir)
+	// Verify save worked by loading again
+	vault2, err := NewConfigVault("")
 	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+		t.Fatalf("NewConfigVault() returned error: %v", err)
+	}
+	if err = vault2.Load(dir); err != nil {
+		t.Errorf("Load() after save error = %v", err)
 	}
 
-	// Check if component exists in loaded tree
-	_, exists := vault2.tree.Components["test"]
-	if !exists {
-		t.Error("Component not found after save and reload")
+	// Check component exists
+	if _, err = vault2.GetComponent("test-comp"); err != nil {
+		t.Errorf("GetComponent() after save error = %v", err)
 	}
 }
 
-func TestGetComponentTree(t *testing.T) {
-	vault := NewConfigVault()
-
-	// Test getting tree without loaded project
-	tree, err := vault.GetComponentTree()
-	if err == nil {
-		t.Error("Expected error when getting tree without loaded project")
-	}
-	if tree != nil {
-		t.Error("Expected nil tree when getting tree without loaded project")
-	}
-
-	// Setup test project
-	dir := setupTestProject(t)
-	defer os.RemoveAll(dir)
-
-	// Load project
-	err = vault.Load(dir)
+func TestInMemoryOperations(t *testing.T) {
+	vault, err := NewConfigVault("")
 	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+		t.Fatalf("NewConfigVault() returned error: %v", err)
 	}
 
-	// Test getting tree
-	tree, err = vault.GetComponentTree()
+	// Test InitializeInMemory
+	root := model.NewComponent("root", "Root", "system")
+	components := []*model.Component{root}
+
+	if err = vault.InitializeInMemory(components); err != nil {
+		t.Errorf("InitializeInMemory() error = %v", err)
+	}
+
+	// Test getting component tree
+	tree, err := vault.GetComponentTree()
 	if err != nil {
 		t.Errorf("GetComponentTree() error = %v", err)
 	}
 	if tree == nil {
 		t.Error("GetComponentTree() returned nil")
 	}
-}
 
-func TestUpdateComponent(t *testing.T) {
-	// Setup test project
-	dir := setupTestProject(t)
-	defer os.RemoveAll(dir)
+	// Test adding component
+	component := model.NewComponent("test-comp", "Test Component", "test")
+	if err = vault.AddComponent(component); err != nil {
+		t.Errorf("AddComponent() error = %v", err)
+	}
 
-	vault := NewConfigVault()
-
-	// Load project
-	err := vault.Load(dir)
+	// Test getting component
+	retrieved, err := vault.GetComponent("test-comp")
 	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+		t.Errorf("GetComponent() error = %v", err)
+	}
+	if retrieved.ID != component.ID {
+		t.Errorf("GetComponent() returned wrong component")
 	}
 
 	// Test updating component
-	component := model.NewComponent("test", "Test", "device")
-	err = vault.UpdateComponent(component)
-	if err != nil {
+	component.Name = "Updated Name"
+	if err = vault.UpdateComponent(component); err != nil {
 		t.Errorf("UpdateComponent() error = %v", err)
 	}
 
-	// Verify component was updated
-	_, exists := vault.tree.Components["test"]
-	if !exists {
-		t.Error("Component not found after update")
-	}
-}
-
-func TestDeleteComponent(t *testing.T) {
-	// Setup test project
-	dir := setupTestProject(t)
-	defer os.RemoveAll(dir)
-
-	vault := NewConfigVault()
-
-	// Load project
-	err := vault.Load(dir)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-
-	// Add test component
-	component := model.NewComponent("test", "Test", "device")
-	vault.tree.AddComponent(component)
-
 	// Test deleting component
-	err = vault.DeleteComponent("test")
-	if err != nil {
+	if err = vault.DeleteComponent("test-comp"); err != nil {
 		t.Errorf("DeleteComponent() error = %v", err)
 	}
 
-	// Verify component was deleted
-	_, exists := vault.tree.Components["test"]
-	if exists {
-		t.Error("Component still exists after delete")
+	// Verify deletion
+	if _, err = vault.GetComponent("test-comp"); err == nil {
+		t.Error("GetComponent() should fail after deletion")
+	}
+}
+
+func TestProjectOperations(t *testing.T) {
+	// Test creating new project
+	dir, err := os.MkdirTemp("", "archon-project-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	vault, err := NewConfigVault(dir)
+	if err != nil {
+		t.Fatalf("NewConfigVault() returned error: %v", err)
+	}
+
+	// Test Initialize
+	if err = vault.Initialize("Test Project"); err != nil {
+		t.Errorf("Initialize() error = %v", err)
+	}
+
+	// Verify files were created
+	if _, err := os.Stat(filepath.Join(dir, ConfigFile)); err != nil {
+		t.Errorf("Config file not created: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ComponentsFile)); err != nil {
+		t.Errorf("Components file not created: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, AttachmentsDir)); err != nil {
+		t.Errorf("Attachments directory not created: %v", err)
+	}
+
+	// Test getting config
+	config := vault.GetConfig()
+	if config.Name != "Test Project" {
+		t.Errorf("Config name = %v, want %v", config.Name, "Test Project")
 	}
 }

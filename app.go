@@ -38,7 +38,8 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
-	a.configVault = storage.NewConfigVault()
+	// Initialize with empty path for in-memory operations initially
+	a.configVault, _ = storage.NewConfigVault("")
 	a.snapshotMgr = snapshot.NewManager(a.configVault)
 	a.pluginMgr = plugin.NewPluginManager()
 
@@ -233,9 +234,12 @@ func (a *App) CreateProject(path, name string) error {
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		return fmt.Errorf("failed to create project directory: %w", err)
 	}
-
 	// Initialize the ConfigVault with the new path
-	a.configVault = storage.NewConfigVault()
+	vault, err := storage.NewConfigVault(path)
+	if err != nil {
+		return fmt.Errorf("failed to create config vault: %w", err)
+	}
+	a.configVault = vault
 
 	// Create a root component
 	rootComponent := model.NewComponent("root", "Root", "system")
@@ -285,9 +289,12 @@ func (a *App) InitializeSampleProject() error {
 		"resolution": "4K",
 		"sensor":     "CMOS",
 	}
-
 	// Create ConfigVault and initialize with sample components
-	a.configVault = storage.NewConfigVault()
+	vault, err := storage.NewConfigVault("")
+	if err != nil {
+		return fmt.Errorf("failed to create config vault: %w", err)
+	}
+	a.configVault = vault
 	components := []*model.Component{root, microscope, camera}
 
 	if err := a.configVault.InitializeInMemory(components); err != nil {

@@ -11,3 +11,4 @@ build/appicon.png
 build/
 build/windows/wails.exe.manifest
 build/windows/info.json
+archon.exe

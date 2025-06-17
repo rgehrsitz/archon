@@ -33,7 +33,8 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
-	a.configVault = storage.NewConfigVault()
+	vault, _ := storage.NewConfigVault("")
+	a.configVault = vault
 	a.snapshotMgr = snapshot.NewManager(a.configVault)
 	a.pluginMgr = plugin.NewPluginManager()
 }

@@ -30,8 +30,8 @@ func NewHierarchy() *Hierarchy {
 }
 
 // LoadHierarchy loads the component hierarchy from the project
-func (p *Project) LoadHierarchy() (*Hierarchy, error) {
-	data, err := os.ReadFile(p.GetComponentsPath())
+func (v *ConfigVault) LoadHierarchy() (*Hierarchy, error) {
+	data, err := os.ReadFile(v.GetComponentsPath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return NewHierarchy(), nil
@@ -48,18 +48,17 @@ func (p *Project) LoadHierarchy() (*Hierarchy, error) {
 }
 
 // SaveHierarchy saves the component hierarchy to the project
-func (p *Project) SaveHierarchy(h *Hierarchy) error {
+func (v *ConfigVault) SaveHierarchy(h *Hierarchy) error {
 	data, err := json.MarshalIndent(h, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to serialize hierarchy: %w", err)
 	}
 
-	if err := os.WriteFile(p.GetComponentsPath(), data, 0644); err != nil {
+	if err := os.WriteFile(v.GetComponentsPath(), data, 0o644); err != nil {
 		return fmt.Errorf("failed to write components file: %w", err)
 	}
-
-	p.changeCount++
-	p.autoSnapshot("")
+	v.changeCount++
+	v.autoSnapshot("")
 	return nil
 }
 
@@ -215,4 +214,4 @@ func removeFromSlice(slice []string, item string) []string {
 		}
 	}
 	return slice
-} 
+}
