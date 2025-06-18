@@ -2,6 +2,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { Snapshot } from "../../lib/types/wails.d.ts";
+  import {
+    GetSnapshots,
+    CreateSnapshot,
+  } from "../../../wailsjs/go/main/App.js";
 
   let snapshots = $state<Snapshot[]>([]);
   let loading = $state(true);
@@ -13,7 +17,7 @@
     loading = true;
     error = null;
     try {
-      snapshots = (await window.go?.main?.App?.GetSnapshots?.()) || [];
+      snapshots = await GetSnapshots();
     } catch (e: unknown) {
       error = e instanceof Error ? e.message : "Failed to load snapshots";
     } finally {
@@ -26,7 +30,7 @@
 
     creating = true;
     try {
-      await window.go?.main?.App?.CreateSnapshot?.(newSnapshotMessage);
+      await CreateSnapshot(newSnapshotMessage);
       newSnapshotMessage = "";
       await loadSnapshots();
     } catch (e: unknown) {

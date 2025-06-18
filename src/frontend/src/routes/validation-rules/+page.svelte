@@ -1,6 +1,7 @@
 <!-- +page.svelte -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import ValidationRuleManager from "../../lib/components/ValidationRuleManager.svelte";
 
   let rules = $state([
     {
@@ -29,6 +30,20 @@
   let showNewRuleForm = $state(false);
   let loading = $state(false);
   let error = $state<string | null>(null);
+
+  // Component type selection variables
+  let selectedType = $state<string>("");
+  let isGeneric = $state(false);
+  let componentTypes = $state([
+    "Power Supply",
+    "Server",
+    "Switch",
+    "Router",
+    "Storage Device",
+    "Network Cable",
+    "Rack",
+    "UPS",
+  ]);
 
   function toggleRule(ruleId: string) {
     const rule = rules.find((r) => r.id === ruleId);
@@ -141,11 +156,13 @@
             <!-- Component Type Selection -->
             <div>
               <label
+                for="component-type-select"
                 class="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
                 Component Type
               </label>
               <select
+                id="component-type-select"
                 bind:value={selectedType}
                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
               >
@@ -155,15 +172,16 @@
                 {/each}
               </select>
             </div>
-
             <!-- Generic/Specific Toggle -->
             <div class="flex items-center">
               <input
+                id="generic-checkbox"
                 type="checkbox"
                 bind:checked={isGeneric}
                 class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
               <label
+                for="generic-checkbox"
                 class="ml-2 block text-sm text-gray-700 dark:text-gray-300"
               >
                 Generic Rules

@@ -2,6 +2,7 @@
 <script lang="ts">
   import ComponentTree from "../lib/components/ComponentTree.svelte";
   import type { Component } from "../lib/types/wails.d.ts";
+  import { GetComponent } from "../../wailsjs/go/main/App.js";
 
   let selectedId = $state<string | null>(null);
   let selectedComponent = $state<Component | null>(null);
@@ -15,9 +16,8 @@
     if (selectedId) {
       loadingDetails = true;
       try {
-        // Use Wails binding instead of fetch
-        selectedComponent =
-          (await window.go?.main?.App?.GetComponent?.(selectedId)) || null;
+        // Use Wails binding directly
+        selectedComponent = await GetComponent(selectedId);
       } catch (e: unknown) {
         errorDetails =
           e instanceof Error ? e.message : "Failed to load details";
