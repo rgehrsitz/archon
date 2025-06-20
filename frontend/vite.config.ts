@@ -9,7 +9,7 @@ export default defineConfig({
       // Ensure wailsjs imports can be resolved from the project root
       'wailsjs': './wailsjs'
     }
-  }, base: './', // Ensure assets resolve correctly in Wails
+  },  base: './', // Ensure assets resolve correctly in Wails
   build: {
     outDir: 'dist', // Output directory for Wails asset handler
     emptyOutDir: true
