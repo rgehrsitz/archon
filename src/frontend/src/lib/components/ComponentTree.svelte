@@ -116,6 +116,53 @@
       creating = false;
     }
   }
+
+  // Edit/Delete state
+  let editingComponentId = $state<string | null>(null);
+  let editComponent = $state({
+    name: "",
+    type: "",
+    parentId: null as string | null,
+  });
+  let updating = $state(false);
+  let updateError = $state("");
+
+  async function startEditComponent(component: any) {
+    editingComponentId = component.id;
+    editComponent = {
+      name: component.name,
+      type: component.type,
+      parentId: component.parentId,
+    };
+  }
+  async function handleUpdateComponent() {
+    if (!editingComponentId) return;
+    updating = true;
+    updateError = "";
+    try {
+      const { UpdateComponent } = await import(
+        "../../../wailsjs/go/main/App.js"
+      );
+      await UpdateComponent(editingComponentId, editComponent);
+      editingComponentId = null;
+      await fetchComponents();
+    } catch (e: unknown) {
+      updateError =
+        e instanceof Error ? e.message : "Failed to update component";
+    } finally {
+      updating = false;
+    }
+  }
+  async function handleDeleteComponent(componentId: string) {
+    if (!confirm("Delete this component?")) return;
+    try {
+      const { DeleteComponent } = await import(
+        "../../../wailsjs/go/main/App.js"
+      );
+      await DeleteComponent(componentId);
+      await fetchComponents();
+    } catch {}
+  }
 </script>
 
 <div class="bg-white rounded-lg shadow">
@@ -243,8 +290,63 @@
                   >({component.type})</span
                 >
               </button>
+              <button
+                class="ml-2 px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs font-medium"
+                onclick={() => startEditComponent(component)}>Edit</button
+              >
+              <button
+                class="ml-2 px-2 py-1 rounded bg-red-100 text-red-800 text-xs font-medium"
+                onclick={() => handleDeleteComponent(component.id)}
+                >Delete</button
+              >
             </div>
-
+            {#if editingComponentId === component.id}
+              <form
+                class="p-2 space-y-2 bg-slate-50 rounded"
+                onsubmit={(event) => {
+                  event.preventDefault();
+                  handleUpdateComponent();
+                }}
+              >
+                <input
+                  type="text"
+                  class="block w-full"
+                  bind:value={editComponent.name}
+                  required
+                />
+                <input
+                  type="text"
+                  class="block w-full"
+                  bind:value={editComponent.type}
+                  required
+                />
+                <select
+                  class="block w-full"
+                  bind:value={editComponent.parentId}
+                >
+                  <option value={null}>None (root)</option>
+                  {#each components as c}
+                    <option value={c.id}>{c.name} ({c.type})</option>
+                  {/each}
+                </select>
+                {#if updateError}
+                  <div class="text-red-500 text-sm">{updateError}</div>
+                {/if}
+                <div class="flex gap-2">
+                  <button
+                    type="submit"
+                    class="px-3 py-1 rounded bg-indigo-600 text-white text-sm font-medium"
+                    disabled={updating}
+                    >{updating ? "Updating..." : "Update"}</button
+                  >
+                  <button
+                    type="button"
+                    class="px-3 py-1 rounded bg-slate-200 text-slate-700 text-sm font-medium"
+                    onclick={() => (editingComponentId = null)}>Cancel</button
+                  >
+                </div>
+              </form>
+            {/if}
             {#if expandedNodes.has(component.id)}
               <div class="ml-6">
                 {#each getChildComponents(component.id) as child (child.id)}
