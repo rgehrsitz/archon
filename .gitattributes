@@ -1,0 +1,5 @@
+# Large binaries in attachments use LFS
+/attachments/** filter=lfs diff=lfs merge=lfs -text
+
+# Node JSON files stay text; optional json diff driver (developers only)
+#/nodes/*.json diff=json

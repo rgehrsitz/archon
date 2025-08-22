@@ -1,0 +1,30 @@
+# Go
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Wails build outputs
+build/bin/
+frontend/dist/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/.vite/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archon project artifacts (non-authoritative cache)
+**/.archon/index/
