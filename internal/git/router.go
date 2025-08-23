@@ -2,7 +2,6 @@ package git
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -199,19 +198,13 @@ func (r *repositoryRouter) CreateTag(ctx context.Context, name, message string) 
 }
 
 func (r *repositoryRouter) ListTags(ctx context.Context) ([]Tag, errors.Envelope) {
-	fmt.Printf("DEBUG: Router ListTags called, shouldUseCLI: %v, goGitRepo == nil: %v\n", r.shouldUseCLI("tags"), r.goGitRepo == nil)
 	if r.shouldUseCLI("tags") || r.goGitRepo == nil {
-		fmt.Printf("DEBUG: Using CLI for ListTags\n")
 		tags, env := r.cliRepo.ListTags(ctx)
-		fmt.Printf("DEBUG: CLI returned %d tags, env: %+v\n", len(tags), env)
 		if env.Code != "" {
 			return nil, env
 		}
-		converted := convertCLITags(tags)
-		fmt.Printf("DEBUG: Converted to %d tags\n", len(converted))
-		return converted, errors.Envelope{}
+		return convertCLITags(tags), errors.Envelope{}
 	}
-	fmt.Printf("DEBUG: Using go-git for ListTags\n")
 	tags, env := r.goGitRepo.ListTags(ctx)
 	if env.Code != "" {
 		return nil, env

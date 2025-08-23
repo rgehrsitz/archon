@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -235,30 +234,23 @@ func (r *Repository) CreateTag(ctx context.Context, name, message string) errors
 }
 
 func (r *Repository) ListTags(ctx context.Context) ([]Tag, errors.Envelope) {
-	fmt.Printf("DEBUG: ListTags called\n")
 	// Always use the simpler approach for maximum compatibility
 	simpleOutput, simpleErr := r.exec(ctx, "tag", "-l")
-	fmt.Printf("DEBUG: exec returned, err: %v\n", simpleErr)
 	if simpleErr != nil {
 		return nil, r.wrapError(simpleErr, errors.ErrStorageFailure, "Failed to list tags")
 	}
 	
 	outputStr := strings.TrimSpace(string(simpleOutput))
-	// DEBUG: Log what we actually got
-	fmt.Printf("DEBUG: Git tag output: '%s' (length: %d)\n", outputStr, len(outputStr))
 	
 	if outputStr == "" {
-		fmt.Printf("DEBUG: Output was empty, returning empty slice\n")
 		return []Tag{}, errors.Envelope{}
 	}
 	
 	// Create basic tags from simple listing
 	var tags []Tag
 	lines := strings.Split(outputStr, "\n")
-	fmt.Printf("DEBUG: Split into %d lines\n", len(lines))
-	for i, line := range lines {
+	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		fmt.Printf("DEBUG: Line %d: '%s' (length: %d)\n", i, line, len(line))
 		if line == "" {
 			continue
 		}
@@ -267,9 +259,7 @@ func (r *Repository) ListTags(ctx context.Context) ([]Tag, errors.Envelope) {
 			IsSnapshot: strings.HasPrefix(line, "snapshot-"),
 		}
 		tags = append(tags, tag)
-		fmt.Printf("DEBUG: Added tag: %s (isSnapshot: %v)\n", tag.Name, tag.IsSnapshot)
 	}
-	fmt.Printf("DEBUG: Returning %d tags\n", len(tags))
 	return tags, errors.Envelope{}
 }
 
