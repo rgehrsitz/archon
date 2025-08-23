@@ -1,0 +1,450 @@
+package store
+
+import (
+	"slices"
+	"time"
+
+	"github.com/rgehrsitz/archon/internal/errors"
+	"github.com/rgehrsitz/archon/internal/id"
+	"github.com/rgehrsitz/archon/internal/types"
+)
+
+// NodeStore handles node-level CRUD operations with validation
+type NodeStore struct {
+	basePath string
+	loader   *Loader
+}
+
+// NewNodeStore creates a new node store
+func NewNodeStore(basePath string) *NodeStore {
+	return &NodeStore{
+		basePath: basePath,
+		loader:   NewLoader(basePath),
+	}
+}
+
+// CreateNode creates a new node under the specified parent
+func (ns *NodeStore) CreateNode(req *types.CreateNodeRequest) (*types.Node, error) {
+	// Validate request
+	if validationErrors := ValidateCreateNodeRequest(req); len(validationErrors) > 0 {
+		return nil, errors.FromValidationErrors(validationErrors)
+	}
+	
+	// Load parent node to validate it exists and check sibling names
+	parent, err := ns.loader.LoadNode(req.ParentID)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Check sibling name uniqueness
+	siblings, err := ns.loadSiblings(req.ParentID)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Create temporary node to check name conflicts
+	newNode := &types.Node{
+		Name: req.Name,
+	}
+	siblings = append(siblings, newNode)
+	
+	if validationErrors := ValidateSiblingNames(siblings); len(validationErrors) > 0 {
+		return nil, errors.FromValidationErrors(validationErrors)
+	}
+	
+	// Generate new node ID and timestamps
+	nodeID := id.NewV7()
+	now := time.Now()
+	
+	// Create the node
+	node := &types.Node{
+		ID:          nodeID,
+		Name:        req.Name,
+		Description: req.Description,
+		Properties:  req.Properties,
+		Children:    []string{},
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	
+	if node.Properties == nil {
+		node.Properties = make(map[string]types.Property)
+	}
+	
+	// Validate the new node
+	if validationErrors := ValidateNode(node); len(validationErrors) > 0 {
+		return nil, errors.FromValidationErrors(validationErrors)
+	}
+	
+	// Save the new node
+	if err := ns.loader.SaveNode(node); err != nil {
+		return nil, err
+	}
+	
+	// Update parent's children list
+	parent.Children = append(parent.Children, nodeID)
+	if err := ns.loader.SaveNode(parent); err != nil {
+		// Rollback: delete the node we just created
+		_ = ns.loader.DeleteNode(nodeID)
+		return nil, err
+	}
+	
+	return node, nil
+}
+
+// GetNode retrieves a node by ID
+func (ns *NodeStore) GetNode(nodeID string) (*types.Node, error) {
+	return ns.loader.LoadNode(nodeID)
+}
+
+// UpdateNode updates an existing node
+func (ns *NodeStore) UpdateNode(req *types.UpdateNodeRequest) (*types.Node, error) {
+	// Validate request
+	if validationErrors := ValidateUpdateNodeRequest(req); len(validationErrors) > 0 {
+		return nil, errors.FromValidationErrors(validationErrors)
+	}
+	
+	// Load existing node
+	node, err := ns.loader.LoadNode(req.ID)
+	if err != nil {
+		return nil, err
+	}
+	
+	originalName := node.Name
+	
+	// Update fields if provided
+	if req.Name != nil {
+		node.Name = *req.Name
+	}
+	if req.Description != nil {
+		node.Description = *req.Description
+	}
+	if req.Properties != nil {
+		node.Properties = req.Properties
+	}
+	
+	// If name changed, check sibling name uniqueness
+	if req.Name != nil && *req.Name != originalName {
+		parent, err := ns.findParent(node.ID)
+		if err != nil {
+			return nil, err
+		}
+		
+		if parent != nil {
+			siblings, err := ns.loadSiblings(parent.ID)
+			if err != nil {
+				return nil, err
+			}
+			
+			// Filter out the current node from siblings check
+			filteredSiblings := make([]*types.Node, 0, len(siblings))
+			for _, sibling := range siblings {
+				if sibling.ID != node.ID {
+					filteredSiblings = append(filteredSiblings, sibling)
+				}
+			}
+			filteredSiblings = append(filteredSiblings, node)
+			
+			if validationErrors := ValidateSiblingNames(filteredSiblings); len(validationErrors) > 0 {
+				return nil, errors.FromValidationErrors(validationErrors)
+			}
+		}
+	}
+	
+	// Validate the updated node
+	if validationErrors := ValidateNode(node); len(validationErrors) > 0 {
+		return nil, errors.FromValidationErrors(validationErrors)
+	}
+	
+	// Save the updated node
+	if err := ns.loader.SaveNode(node); err != nil {
+		return nil, err
+	}
+	
+	return node, nil
+}
+
+// DeleteNode deletes a node and all its children
+func (ns *NodeStore) DeleteNode(nodeID string) error {
+	if !id.IsValid(nodeID) {
+		return errors.New(errors.ErrInvalidUUID, "Invalid node ID format")
+	}
+	
+	// Load the node to be deleted
+	node, err := ns.loader.LoadNode(nodeID)
+	if err != nil {
+		return err
+	}
+	
+	// Recursively delete all children first
+	for _, childID := range node.Children {
+		if err := ns.DeleteNode(childID); err != nil {
+			return err
+		}
+	}
+	
+	// Remove this node from its parent's children list
+	parent, err := ns.findParent(nodeID)
+	if err != nil {
+		return err
+	}
+	
+	if parent != nil {
+		parent.Children = slices.DeleteFunc(parent.Children, func(id string) bool {
+			return id == nodeID
+		})
+		if err := ns.loader.SaveNode(parent); err != nil {
+			return err
+		}
+	}
+	
+	// Delete the node file
+	return ns.loader.DeleteNode(nodeID)
+}
+
+// MoveNode moves a node to a new parent
+func (ns *NodeStore) MoveNode(req *types.MoveNodeRequest) error {
+	// Validate request
+	if validationErrors := ValidateMoveNodeRequest(req); len(validationErrors) > 0 {
+		return errors.FromValidationErrors(validationErrors)
+	}
+	
+	// Load the node to move
+	node, err := ns.loader.LoadNode(req.NodeID)
+	if err != nil {
+		return err
+	}
+	
+	// Load new parent
+	newParent, err := ns.loader.LoadNode(req.NewParentID)
+	if err != nil {
+		return err
+	}
+	
+	// Check for circular reference (can't move node under itself or its descendants)
+	if err := ns.checkCircularReference(req.NodeID, req.NewParentID); err != nil {
+		return err
+	}
+	
+	// Load current parent
+	currentParent, err := ns.findParent(req.NodeID)
+	if err != nil {
+		return err
+	}
+	
+	// If moving to same parent, this is just a reorder operation
+	if currentParent != nil && currentParent.ID == req.NewParentID {
+		return ns.reorderChild(req.NewParentID, req.NodeID, req.Position)
+	}
+	
+	// Check sibling name uniqueness in new parent
+	newSiblings, err := ns.loadSiblings(req.NewParentID)
+	if err != nil {
+		return err
+	}
+	
+	newSiblings = append(newSiblings, node)
+	if validationErrors := ValidateSiblingNames(newSiblings); len(validationErrors) > 0 {
+		return errors.FromValidationErrors(validationErrors)
+	}
+	
+	// Remove from current parent
+	if currentParent != nil {
+		currentParent.Children = slices.DeleteFunc(currentParent.Children, func(id string) bool {
+			return id == req.NodeID
+		})
+		if err := ns.loader.SaveNode(currentParent); err != nil {
+			return err
+		}
+	}
+	
+	// Add to new parent at specified position
+	if req.Position >= 0 && req.Position < len(newParent.Children) {
+		newParent.Children = slices.Insert(newParent.Children, req.Position, req.NodeID)
+	} else {
+		newParent.Children = append(newParent.Children, req.NodeID)
+	}
+	
+	// Save new parent
+	return ns.loader.SaveNode(newParent)
+}
+
+// ReorderChildren reorders the children of a parent node
+func (ns *NodeStore) ReorderChildren(req *types.ReorderChildrenRequest) error {
+	// Validate request
+	if validationErrors := ValidateReorderChildrenRequest(req); len(validationErrors) > 0 {
+		return errors.FromValidationErrors(validationErrors)
+	}
+	
+	// Load parent node
+	parent, err := ns.loader.LoadNode(req.ParentID)
+	if err != nil {
+		return err
+	}
+	
+	// Verify all ordered IDs are actually children of this parent
+	currentChildSet := make(map[string]bool)
+	for _, childID := range parent.Children {
+		currentChildSet[childID] = true
+	}
+	
+	orderedChildSet := make(map[string]bool)
+	for _, childID := range req.OrderedChildIDs {
+		orderedChildSet[childID] = true
+		if !currentChildSet[childID] {
+			return errors.New(errors.ErrInvalidInput, "Child ID not found in parent's children: "+childID)
+		}
+	}
+	
+	// Verify we have all children and no missing ones
+	if len(orderedChildSet) != len(currentChildSet) {
+		return errors.New(errors.ErrInvalidInput, "Ordered children list doesn't match parent's current children")
+	}
+	
+	// Update parent's children order
+	parent.Children = req.OrderedChildIDs
+	
+	return ns.loader.SaveNode(parent)
+}
+
+// ListChildren returns all direct children of a node
+func (ns *NodeStore) ListChildren(nodeID string) ([]*types.Node, error) {
+	parent, err := ns.loader.LoadNode(nodeID)
+	if err != nil {
+		return nil, err
+	}
+	
+	children := make([]*types.Node, 0, len(parent.Children))
+	for _, childID := range parent.Children {
+		child, err := ns.loader.LoadNode(childID)
+		if err != nil {
+			return nil, err
+		}
+		children = append(children, child)
+	}
+	
+	return children, nil
+}
+
+// GetNodePath returns the path from root to the specified node
+func (ns *NodeStore) GetNodePath(nodeID string) ([]*types.Node, error) {
+	var path []*types.Node
+	currentID := nodeID
+	
+	for currentID != "" {
+		node, err := ns.loader.LoadNode(currentID)
+		if err != nil {
+			return nil, err
+		}
+		
+		path = append([]*types.Node{node}, path...)
+		
+		// Find parent
+		parent, err := ns.findParent(currentID)
+		if err != nil {
+			return nil, err
+		}
+		
+		if parent == nil {
+			break // Reached root
+		}
+		currentID = parent.ID
+	}
+	
+	return path, nil
+}
+
+// Helper methods
+
+// loadSiblings loads all sibling nodes for a given parent
+func (ns *NodeStore) loadSiblings(parentID string) ([]*types.Node, error) {
+	parent, err := ns.loader.LoadNode(parentID)
+	if err != nil {
+		return nil, err
+	}
+	
+	siblings := make([]*types.Node, 0, len(parent.Children))
+	for _, childID := range parent.Children {
+		child, err := ns.loader.LoadNode(childID)
+		if err != nil {
+			return nil, err
+		}
+		siblings = append(siblings, child)
+	}
+	
+	return siblings, nil
+}
+
+// findParent finds the parent node of a given node ID
+func (ns *NodeStore) findParent(nodeID string) (*types.Node, error) {
+	// Load all node files and search for the one containing this nodeID as a child
+	allNodeIDs, err := ns.loader.ListNodeFiles()
+	if err != nil {
+		return nil, err
+	}
+	
+	for _, candidateID := range allNodeIDs {
+		candidate, err := ns.loader.LoadNode(candidateID)
+		if err != nil {
+			continue // Skip corrupted nodes
+		}
+		
+		for _, childID := range candidate.Children {
+			if childID == nodeID {
+				return candidate, nil
+			}
+		}
+	}
+	
+	return nil, nil // No parent found (this is the root node)
+}
+
+// checkCircularReference ensures moving a node won't create a circular reference
+func (ns *NodeStore) checkCircularReference(nodeID, newParentID string) error {
+	// Walk up from newParentID to ensure nodeID is not in the ancestry
+	currentID := newParentID
+	
+	for currentID != "" {
+		if currentID == nodeID {
+			return errors.New(errors.ErrCircularReference, "Cannot move node under itself or its descendants")
+		}
+		
+		parent, err := ns.findParent(currentID)
+		if err != nil {
+			return err
+		}
+		
+		if parent == nil {
+			break // Reached root
+		}
+		currentID = parent.ID
+	}
+	
+	return nil
+}
+
+// reorderChild reorders a single child within its current parent
+func (ns *NodeStore) reorderChild(parentID, childID string, position int) error {
+	parent, err := ns.loader.LoadNode(parentID)
+	if err != nil {
+		return err
+	}
+	
+	// Find current position
+	currentPos := slices.Index(parent.Children, childID)
+	if currentPos == -1 {
+		return errors.New(errors.ErrInvalidInput, "Child not found in parent")
+	}
+	
+	// Remove from current position
+	parent.Children = slices.Delete(parent.Children, currentPos, currentPos+1)
+	
+	// Insert at new position
+	if position >= 0 && position <= len(parent.Children) {
+		parent.Children = slices.Insert(parent.Children, position, childID)
+	} else {
+		parent.Children = append(parent.Children, childID)
+	}
+	
+	return ns.loader.SaveNode(parent)
+}

@@ -2,7 +2,7 @@ package api
 
 import (
 	"context"
-	"wailts/internal/errors"
+	"github.com/rgehrsitz/archon/internal/errors"
 )
 
 type GitService struct{}

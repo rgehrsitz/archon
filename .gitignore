@@ -28,3 +28,6 @@ Thumbs.db
 
 # Archon project artifacts (non-authoritative cache)
 **/.archon/index/
+
+# Examples
+examples/
