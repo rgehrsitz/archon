@@ -2,7 +2,14 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"compress/gzip"
 
 	"github.com/rgehrsitz/archon/internal/errors"
 	"github.com/rgehrsitz/archon/internal/logging"
@@ -112,11 +119,13 @@ func (s *LoggingService) SetLogLevel(ctx context.Context, level string) errors.E
 		return errors.New(errors.ErrInvalidInput, fmt.Sprintf("Invalid log level: %s", level))
 	}
 	
+	// Capture old level, then update level
+	old := logging.GetLevel()
 	logging.SetLevel(logLevel)
 	
 	// Log the change
-	logging.Info().Info().
-		Str("old_level", string(logging.GetLevel())).
+	logging.Log().Info().
+		Str("old_level", string(old)).
 		Str("new_level", level).
 		Msg("Log level changed from frontend")
 	
@@ -130,18 +139,112 @@ func (s *LoggingService) GetLogHealth(ctx context.Context) (map[string]interface
 }
 
 // GetRecentLogs returns recent log entries (if available)
-// Note: This would require implementing log reading functionality
 func (s *LoggingService) GetRecentLogs(ctx context.Context, limit int) ([]map[string]interface{}, errors.Envelope) {
-	// TODO: Implement log reading from files
-	// For now, return empty array with a note
-	return []map[string]interface{}{
-		{
-			"level":     "info",
-			"message":   "Log reading not yet implemented",
-			"timestamp": "2024-08-23T00:00:00Z",
-			"source":    "logging_service",
-		},
-	}, errors.Envelope{}
+	if limit <= 0 {
+		limit = 100
+	}
+
+	cfg := logging.GetLogger().GetConfig()
+	dir := cfg.LogDirectory
+
+	// Collect candidate files: archon.log and rotated variants (including compressed)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []map[string]interface{}{}, errors.Envelope{}
+		}
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to list log directory", err)
+	}
+
+	type fileInfo struct {
+		path string
+		mod  int64
+		isCurrent bool
+	}
+
+	candidates := make([]fileInfo, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasPrefix(name, "archon.log") {
+			continue
+		}
+		full := filepath.Join(dir, name)
+		info, statErr := e.Info()
+		if statErr != nil {
+			continue
+		}
+		candidates = append(candidates, fileInfo{path: full, mod: info.ModTime().UnixNano(), isCurrent: name == "archon.log"})
+	}
+
+	if len(candidates) == 0 {
+		return []map[string]interface{}{}, errors.Envelope{}
+	}
+
+	// Sort by current first, then by modtime desc
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].isCurrent != candidates[j].isCurrent {
+			return candidates[i].isCurrent
+		}
+		return candidates[i].mod > candidates[j].mod
+	})
+
+	// Helper to read file content (supports .gz)
+	readAll := func(p string) ([]byte, error) {
+		f, err := os.Open(p)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		var r io.Reader = f
+		if strings.HasSuffix(p, ".gz") {
+			gz, gzErr := gzip.NewReader(f)
+			if gzErr != nil {
+				return nil, gzErr
+			}
+			defer gz.Close()
+			r = gz
+		}
+		return io.ReadAll(r)
+	}
+
+	// Collect last N lines across files, starting from newest
+	rev := make([]map[string]interface{}, 0, limit)
+	total := 0
+	for _, fi := range candidates {
+		if total >= limit {
+			break
+		}
+		data, rerr := readAll(fi.path)
+		if rerr != nil {
+			// Skip unreadable files
+			continue
+		}
+		lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+		// Walk from end to start to get most recent first from this file
+		for i := len(lines) - 1; i >= 0 && total < limit; i-- {
+			line := strings.TrimSpace(lines[i])
+			if line == "" {
+				continue
+			}
+			var m map[string]interface{}
+			if err := json.Unmarshal([]byte(line), &m); err == nil {
+				rev = append(rev, m)
+			} else {
+				rev = append(rev, map[string]interface{}{"raw": lines[i]})
+			}
+			total++
+		}
+	}
+
+	// Reverse to chronological order
+	for i, j := 0, len(rev)-1; i < j; i, j = i+1, j-1 {
+		rev[i], rev[j] = rev[j], rev[i]
+	}
+
+	return rev, errors.Envelope{}
 }
 
 // UpdateLoggingConfig updates the logging configuration
@@ -164,7 +267,7 @@ func (s *LoggingService) UpdateLoggingConfig(ctx context.Context, updates map[st
 	}
 	
 	// Log the configuration change
-	logging.Info().Info().
+	logging.Log().Info().
 		Interface("updates", updates).
 		Str("environment", environment).
 		Msg("Logging configuration updated from frontend")
@@ -193,7 +296,7 @@ func (s *LoggingService) InitializeProjectLogging(ctx context.Context, projectPa
 		return errors.WrapError(errors.ErrStorageFailure, "Failed to initialize project logging", err)
 	}
 	
-	logging.Info().Info().
+	logging.Log().Info().
 		Str("project_path", projectPath).
 		Str("environment", logging.GetEnvironmentFromOS()).
 		Msg("Project logging initialized")

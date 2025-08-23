@@ -100,7 +100,7 @@ func Debug() *Logger {
 
 // Info logs at info level
 func Info() *Logger {
-	return GetLogger()
+    return GetLogger()
 }
 
 // Warn logs at warn level
@@ -115,8 +115,21 @@ func Error() *Logger {
 
 // Fatal logs at fatal level
 func Fatal() *Logger {
-	return GetLogger()
+    return GetLogger()
 }
+
+// Log returns the global logger for fluent calls, e.g., Log().Info().Msg("...")
+func Log() *Logger {
+    return GetLogger()
+}
+
+// Simple message helpers for common use without chaining
+func TraceMsg(msg string) { GetLogger().Trace().Msg(msg) }
+func DebugMsg(msg string) { GetLogger().Debug().Msg(msg) }
+func InfoMsg(msg string)  { GetLogger().Info().Msg(msg) }
+func WarnMsg(msg string)  { GetLogger().Warn().Msg(msg) }
+func ErrorMsg(msg string) { GetLogger().Error().Msg(msg) }
+func FatalMsg(msg string) { GetLogger().Fatal().Msg(msg) }
 
 // LogError logs a structured error with correlation
 func LogError(ctx context.Context, err error, message string) {

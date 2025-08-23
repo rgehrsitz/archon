@@ -60,11 +60,12 @@ Currently no active development tasks.
   - Incremental updates on node changes
   - Index health monitoring and rebuild capability
 
-- [ ] **Logging System** - Rotating logs with error envelopes (ADR-006)
+- [x] **Logging System** - Rotating logs with error envelopes (ADR-006)
   - Structured logging with zerolog
   - Rotating files in `logs/` directory (10MB x 5 files)
   - Error correlation and debugging support
   - Configurable log levels
+  - Recent logs retrieval with rotation awareness (includes `.gz`)
 
 - [ ] **Schema Migration System** - Forward-only migrations with backup (ADR-007)
   - Versioned migration steps
@@ -175,8 +176,7 @@ Currently no active development tasks.
 **Recommended Next Steps:** Phase 1 (Data Layer Extensions)
 
 1. SQLite Search Index - Critical for UI responsiveness
-2. Logging System - Essential for debugging and reliability
-3. Schema Migration - Required before user releases
+2. Schema Migration - Required before user releases
 
 ## 📊 Progress Summary
 
@@ -191,5 +191,5 @@ Currently no active development tasks.
 
 ---
 
-*Last Updated: 2024-08-23*
+*Last Updated: 2025-08-23*
 *Next Review: After Phase 1 completion*

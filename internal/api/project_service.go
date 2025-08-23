@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/rgehrsitz/archon/internal/errors"
+	"github.com/rgehrsitz/archon/internal/logging"
 	"github.com/rgehrsitz/archon/internal/store"
 	"github.com/rgehrsitz/archon/internal/types"
 )
@@ -46,6 +47,12 @@ func (s *ProjectService) CreateProject(ctx context.Context, path string, setting
 	// Set as current project
 	s.currentProject = projectStore
 	s.currentPath = cleanPath
+
+	// Initialize logging for this project based on environment; non-fatal if it fails
+	if err := logging.InitializeFromEnvironment(cleanPath); err != nil {
+		// Wrap but do not fail project creation; frontend can still operate
+		// Optionally: surface as a warning envelope in future
+	}
 	
 	return project, errors.Envelope{}
 }
@@ -76,6 +83,12 @@ func (s *ProjectService) OpenProject(ctx context.Context, path string) (*types.P
 	// Set as current project
 	s.currentProject = projectStore
 	s.currentPath = cleanPath
+
+	// Initialize logging for this project based on environment; non-fatal if it fails
+	if err := logging.InitializeFromEnvironment(cleanPath); err != nil {
+		// Wrap but do not fail project creation; frontend can still operate
+		// Optionally: surface as a warning envelope in future
+	}
 	
 	return project, errors.Envelope{}
 }

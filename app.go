@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/rgehrsitz/archon/internal/api"
+	"github.com/rgehrsitz/archon/internal/logging"
 )
 
 // App struct contains the application services
@@ -11,16 +12,19 @@ type App struct {
 	ctx            context.Context
 	projectService *api.ProjectService
 	nodeService    *api.NodeService
+	loggingService *api.LoggingService
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
 	projectService := api.NewProjectService()
 	nodeService := api.NewNodeService(projectService)
+	loggingService := api.NewLoggingService(projectService)
 	
 	return &App{
 		projectService: projectService,
 		nodeService:    nodeService,
+		loggingService: loggingService,
 	}
 }
 
@@ -28,6 +32,12 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+}
+
+// shutdown is called when the app is quitting.
+func (a *App) shutdown(ctx context.Context) {
+    // Graceful logging shutdown
+    logging.Shutdown()
 }
 
 // GetProjectService returns the project service for Wails binding
@@ -38,4 +48,9 @@ func (a *App) GetProjectService() *api.ProjectService {
 // GetNodeService returns the node service for Wails binding
 func (a *App) GetNodeService() *api.NodeService {
 	return a.nodeService
+}
+
+// GetLoggingService returns the logging service for Wails binding
+func (a *App) GetLoggingService() *api.LoggingService {
+	return a.loggingService
 }

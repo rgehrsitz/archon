@@ -1,3 +1,10 @@
+//go:build ignore
+
+// This file is intentionally ignored by the Go build system.
+// It was an early placeholder simple logger and is superseded by the
+// structured zerolog-based logger defined in this package.
+// Keeping the source for historical reference; not compiled.
+
 package logging
 
 import (

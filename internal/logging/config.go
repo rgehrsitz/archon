@@ -3,6 +3,7 @@ package logging
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 )
@@ -211,7 +212,23 @@ func UpdateEnvironmentConfig(projectRoot, environment string, updates map[string
 	// Convert to environment config for easier manipulation
 	envConfig := configToEnvConfig(config, environment)
 	
-	// Apply updates
+	toInt := func(v interface{}) (int, bool) {
+		switch n := v.(type) {
+		case int:
+			return n, true
+		case int32:
+			return int(n), true
+		case int64:
+			return int(n), true
+		case float64:
+			return int(math.Round(n)), true
+		case float32:
+			return int(math.Round(float64(n))), true
+		default:
+			return 0, false
+		}
+	}
+
 	for key, value := range updates {
 		switch key {
 		case "log_level":
@@ -226,16 +243,23 @@ func UpdateEnvironmentConfig(projectRoot, environment string, updates map[string
 			if b, ok := value.(bool); ok {
 				envConfig.File = b
 			}
-		case "max_size":
-			if i, ok := value.(int); ok {
+		case "directory", "log_directory":
+			if s, ok := value.(string); ok && s != "" {
+				if !filepath.IsAbs(s) {
+					s = filepath.Join(projectRoot, s)
+				}
+				envConfig.Directory = s
+			}
+		case "max_size", "max_size_mb":
+			if i, ok := toInt(value); ok {
 				envConfig.MaxSize = i
 			}
 		case "max_backups":
-			if i, ok := value.(int); ok {
+			if i, ok := toInt(value); ok {
 				envConfig.MaxBackups = i
 			}
-		case "max_age":
-			if i, ok := value.(int); ok {
+		case "max_age", "max_age_days":
+			if i, ok := toInt(value); ok {
 				envConfig.MaxAge = i
 			}
 		case "compress":
