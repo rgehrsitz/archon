@@ -75,11 +75,12 @@ Currently no active development tasks.
 
 ### Phase 2: Git & Versioning Layer
 
-- [ ] **Git Integration** - Hybrid CLI/go-git implementation (ADR-008, ADR-010)
+- [x] **Git Integration** - Hybrid CLI/go-git implementation (ADR-008, ADR-010)
   - System git for porcelain operations (push, pull, credentials)
   - go-git for fast read operations (log, diff, tree walking)
   - Git repository initialization and LFS setup
   - Remote repository configuration and sync
+  - Wails service integration with project-aware operations
 
 - [ ] **Snapshot System** - Commit + immutable tag pairs
   - Create snapshots (commit + tag)
@@ -182,12 +183,12 @@ Currently no active development tasks.
 
 - **Foundation Layer**: ✅ Complete (6/6 major components)
 - **Data Extensions**: ✅ Complete (3/3 components)
-- **Git & Versioning**: ⏳ 0/4 components  
+- **Git & Versioning**: ⏳ 1/4 components (Git Integration complete)
 - **Content & Plugins**: ⏳ 0/3 components
 - **User Interface**: ⏳ 0/6 components
 - **Distribution**: ⏳ 0/2 components
 
-**Overall Progress**: ~45% complete (foundation + data layer extensions complete)
+**Overall Progress**: ~50% complete (foundation + data + git integration complete)
 
 ---
 

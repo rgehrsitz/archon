@@ -2,8 +2,11 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/rgehrsitz/archon/internal/errors"
 )
@@ -121,6 +124,12 @@ func (r *Repository) Push(ctx context.Context, remote, branch string) errors.Env
 	return r.wrapError(err, errors.ErrStorageFailure, "Failed to push to remote")
 }
 
+// Checkout operations
+func (r *Repository) Checkout(ctx context.Context, ref string) errors.Envelope {
+	_, err := r.exec(ctx, "checkout", ref)
+	return r.wrapError(err, errors.ErrStorageFailure, "Failed to checkout reference")
+}
+
 // LFS operations
 func (r *Repository) InitLFS(ctx context.Context) errors.Envelope {
 	_, err := r.exec(ctx, "lfs", "install")
@@ -176,12 +185,42 @@ func (r *Repository) Commit(ctx context.Context, message string, author *Author)
 	if message == "" {
 		return nil, errors.New(errors.ErrInvalidInput, "Commit message cannot be empty")
 	}
-	_, err := r.exec(ctx, "commit", "-m", message)
+	
+	// Set author if provided
+	args := []string{"commit", "-m", message}
+	if author != nil && author.Name != "" && author.Email != "" {
+		args = append([]string{"commit", "--author", author.Name + " <" + author.Email + ">", "-m", message}, args[2:]...)
+	}
+	
+	_, err := r.exec(ctx, args...)
 	if err != nil {
 		return nil, r.wrapError(err, errors.ErrStorageFailure, "Failed to create commit")
 	}
-	// Return stub commit - will be expanded
-	return &Commit{Message: message}, errors.Envelope{}
+	
+	// Get the latest commit hash
+	hashOutput, err := r.exec(ctx, "rev-parse", "HEAD")
+	if err != nil {
+		return nil, r.wrapError(err, errors.ErrStorageFailure, "Failed to get commit hash")
+	}
+	
+	hash := strings.TrimSpace(string(hashOutput))
+	shortHash := hash
+	if len(hash) > 8 {
+		shortHash = hash[:8]
+	}
+	
+	// Build commit object
+	commit := &Commit{
+		Hash:      hash,
+		ShortHash: shortHash,
+		Message:   message,
+	}
+	
+	if author != nil {
+		commit.Author = *author
+	}
+	
+	return commit, errors.Envelope{}
 }
 
 func (r *Repository) CreateTag(ctx context.Context, name, message string) errors.Envelope {
@@ -196,8 +235,42 @@ func (r *Repository) CreateTag(ctx context.Context, name, message string) errors
 }
 
 func (r *Repository) ListTags(ctx context.Context) ([]Tag, errors.Envelope) {
-	// Stub implementation - will be expanded
-	return []Tag{}, errors.Envelope{}
+	fmt.Printf("DEBUG: ListTags called\n")
+	// Always use the simpler approach for maximum compatibility
+	simpleOutput, simpleErr := r.exec(ctx, "tag", "-l")
+	fmt.Printf("DEBUG: exec returned, err: %v\n", simpleErr)
+	if simpleErr != nil {
+		return nil, r.wrapError(simpleErr, errors.ErrStorageFailure, "Failed to list tags")
+	}
+	
+	outputStr := strings.TrimSpace(string(simpleOutput))
+	// DEBUG: Log what we actually got
+	fmt.Printf("DEBUG: Git tag output: '%s' (length: %d)\n", outputStr, len(outputStr))
+	
+	if outputStr == "" {
+		fmt.Printf("DEBUG: Output was empty, returning empty slice\n")
+		return []Tag{}, errors.Envelope{}
+	}
+	
+	// Create basic tags from simple listing
+	var tags []Tag
+	lines := strings.Split(outputStr, "\n")
+	fmt.Printf("DEBUG: Split into %d lines\n", len(lines))
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		fmt.Printf("DEBUG: Line %d: '%s' (length: %d)\n", i, line, len(line))
+		if line == "" {
+			continue
+		}
+		tag := Tag{
+			Name:       line,
+			IsSnapshot: strings.HasPrefix(line, "snapshot-"),
+		}
+		tags = append(tags, tag)
+		fmt.Printf("DEBUG: Added tag: %s (isSnapshot: %v)\n", tag.Name, tag.IsSnapshot)
+	}
+	fmt.Printf("DEBUG: Returning %d tags\n", len(tags))
+	return tags, errors.Envelope{}
 }
 
 func (r *Repository) GetDiff(ctx context.Context, from, to string) (*Diff, errors.Envelope) {
@@ -240,10 +313,11 @@ type Author struct {
 }
 
 type Tag struct {
-	Name       string `json:"name"`
-	Hash       string `json:"hash"`
-	Message    string `json:"message,omitempty"`
-	IsSnapshot bool   `json:"isSnapshot"`
+	Name       string    `json:"name"`
+	Hash       string    `json:"hash"`
+	Message    string    `json:"message,omitempty"`
+	Date       time.Time `json:"date"`
+	IsSnapshot bool      `json:"isSnapshot"`
 }
 
 type Diff struct {

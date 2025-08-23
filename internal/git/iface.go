@@ -33,6 +33,9 @@ type Repository interface {
 	CreateTag(ctx context.Context, name, message string) errors.Envelope
 	ListTags(ctx context.Context) ([]Tag, errors.Envelope)
 	
+	// Branch and checkout operations
+	Checkout(ctx context.Context, ref string) errors.Envelope
+	
 	// LFS support
 	InitLFS(ctx context.Context) errors.Envelope
 	IsLFSEnabled(ctx context.Context) (bool, errors.Envelope)
