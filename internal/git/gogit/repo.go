@@ -40,11 +40,61 @@ func NewRepository(path string) (*Repository, error) {
 // Stub implementations for interface compliance - will expand incrementally
 
 func (r *Repository) Status(ctx context.Context) (*Status, errors.Envelope) {
-	// Stub implementation using go-git
-	// TODO: Implement using go-git worktree status
+	if r.repo == nil {
+		return &Status{IsClean: true}, errors.Envelope{}
+	}
+
+	// Determine branch
+	branch := ""
+	if head, err := r.repo.Head(); err == nil {
+		if head.Name().IsBranch() {
+			branch = head.Name().Short()
+		}
+	}
+
+	wt, err := r.repo.Worktree()
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to open worktree", err)
+	}
+	st, err := wt.Status()
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to get worktree status", err)
+	}
+
+	var staged, modified, untracked, conflicted []string
+	isClean := true
+	for path, fs := range st {
+		// Untracked (do not mark dirty; Git allows checkout with untracked files if not overwritten)
+		if fs.Worktree == git.Untracked {
+			untracked = append(untracked, path)
+			continue
+		}
+		// Conflicted
+		if fs.Staging == git.UpdatedButUnmerged || fs.Worktree == git.UpdatedButUnmerged {
+			conflicted = append(conflicted, path)
+			isClean = false
+			continue
+		}
+		// Staged vs modified
+		if fs.Staging != git.Unmodified {
+			staged = append(staged, path)
+			isClean = false
+		}
+		if fs.Worktree != git.Unmodified {
+			modified = append(modified, path)
+			isClean = false
+		}
+	}
+
 	return &Status{
-		Branch:  "main",
-		IsClean: true,
+		Branch:          branch,
+		IsClean:         isClean,
+		AheadBy:         0,
+		BehindBy:        0,
+		StagedFiles:     staged,
+		ModifiedFiles:   modified,
+		UntrackedFiles:  untracked,
+		ConflictedFiles: conflicted,
 	}, errors.Envelope{}
 }
 
@@ -63,8 +113,45 @@ func (r *Repository) GetCurrentBranch(ctx context.Context) (string, errors.Envel
 }
 
 func (r *Repository) GetCommitHistory(ctx context.Context, limit int) ([]Commit, errors.Envelope) {
-	// Stub implementation - will be expanded
-	return []Commit{}, errors.Envelope{}
+	if r.repo == nil {
+		return []Commit{}, errors.Envelope{}
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+
+	head, err := r.repo.Head()
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to get HEAD", err)
+	}
+
+	iter, err := r.repo.Log(&git.LogOptions{From: head.Hash()})
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to get commit log", err)
+	}
+	defer iter.Close()
+
+	commits := make([]Commit, 0, limit)
+	count := 0
+	for count < limit {
+		c, err := iter.Next()
+		if err != nil {
+			break
+		}
+		hash := c.Hash.String()
+		short := hash
+		if len(short) > 8 {
+			short = short[:8]
+		}
+		commits = append(commits, Commit{
+			Hash:      hash,
+			ShortHash: short,
+			Message:   strings.TrimSpace(c.Message),
+			Author:    Author{Name: c.Author.Name, Email: c.Author.Email},
+		})
+		count++
+	}
+	return commits, errors.Envelope{}
 }
 
 func (r *Repository) ListTags(ctx context.Context) ([]Tag, errors.Envelope) {

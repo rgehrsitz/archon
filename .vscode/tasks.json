@@ -52,6 +52,45 @@
 				"$go"
 			],
 			"group": "build"
+		},
+		{
+			"label": "build and test after changes",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go vet ./... && go build ./cmd/archon && go test ./..."
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "rerun tests after status tweak",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go test ./internal/snapshot -run TestSnapshotRestore -v"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "full vet/build/test (fresh)",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go vet ./... && go build ./cmd/archon && go test ./... -count=1"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
 		}
 	]
 }
