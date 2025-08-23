@@ -1,12 +1,14 @@
 package store
 
 import (
+	"context"
 	"slices"
 	"time"
 
 	"github.com/rgehrsitz/archon/internal/errors"
 	"github.com/rgehrsitz/archon/internal/id"
 	"github.com/rgehrsitz/archon/internal/index"
+	"github.com/rgehrsitz/archon/internal/logging"
 	"github.com/rgehrsitz/archon/internal/types"
 )
 
@@ -28,14 +30,30 @@ func NewNodeStore(basePath string, indexManager *index.Manager) *NodeStore {
 
 // CreateNode creates a new node under the specified parent
 func (ns *NodeStore) CreateNode(req *types.CreateNodeRequest) (*types.Node, error) {
+	return ns.CreateNodeWithContext(context.Background(), req)
+}
+
+// CreateNodeWithContext creates a new node with logging context
+func (ns *NodeStore) CreateNodeWithContext(ctx context.Context, req *types.CreateNodeRequest) (*types.Node, error) {
+	logger := logging.WithOperation("create_node").
+		WithContext(map[string]interface{}{
+			"parent_id": req.ParentID,
+			"node_name": req.Name,
+		})
+	
+	logger.Info().Msg("Starting node creation")
+	
 	// Validate request
 	if validationErrors := ValidateCreateNodeRequest(req); len(validationErrors) > 0 {
-		return nil, errors.FromValidationErrors(validationErrors)
+		err := errors.FromValidationErrors(validationErrors)
+		logger.Error().Err(err).Msg("Node creation validation failed")
+		return nil, err
 	}
 	
 	// Load parent node to validate it exists and check sibling names
 	parent, err := ns.loader.LoadNode(req.ParentID)
 	if err != nil {
+		logger.Error().Err(err).Str("parent_id", req.ParentID).Msg("Failed to load parent node")
 		return nil, err
 	}
 	
@@ -107,7 +125,15 @@ func (ns *NodeStore) CreateNode(req *types.CreateNodeRequest) (*types.Node, erro
 	// Update parent's child count in index
 	if err := ns.indexManager.UpdateNodeChildCount(req.ParentID, len(parent.Children)); err != nil {
 		// Non-critical error - log but don't fail
+		logger.Warn().Err(err).
+			Str("parent_id", req.ParentID).
+			Msg("Failed to update parent child count in index")
 	}
+	
+	logger.Info().
+		Str("node_id", node.ID).
+		Str("parent_id", req.ParentID).
+		Msg("Node created successfully")
 	
 	return node, nil
 }
@@ -117,21 +143,9 @@ func (ns *NodeStore) calculateDepth(parentID string) int {
 		return 0
 	}
 	
-	depth := 0
-	currentID := parentID
-	for currentID != "" {
-		_, err := ns.loader.LoadNode(currentID)
-		if err != nil {
-			break
-		}
-		depth++
-		// Look for parent's parent in the stored structure
-		// This is a simple traversal - could be optimized with index lookup
-		currentID = ""
-		break // For now, just return depth 1 for any non-root node
-	}
-	
-	return depth + 1
+	// For now, just return depth 1 for any non-root node
+	// TODO: Implement proper depth calculation by traversing parent chain
+	return 1
 }
 
 // GetNode retrieves a node by ID
@@ -431,10 +445,8 @@ func (ns *NodeStore) findParent(nodeID string) (*types.Node, error) {
 			continue // Skip corrupted nodes
 		}
 		
-		for _, childID := range candidate.Children {
-			if childID == nodeID {
-				return candidate, nil
-			}
+		if slices.Contains(candidate.Children, nodeID) {
+			return candidate, nil
 		}
 	}
 	
