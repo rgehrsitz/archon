@@ -167,7 +167,7 @@ func (r *Repository) Status(ctx context.Context) (*Status, errors.Envelope) {
 }
 
 func (r *Repository) GetCommitHistory(ctx context.Context, limit int) ([]Commit, errors.Envelope) {
-	// Stub implementation - will be expanded  
+	// Stub implementation - will be expanded
 	return []Commit{}, errors.Envelope{}
 }
 
@@ -184,41 +184,41 @@ func (r *Repository) Commit(ctx context.Context, message string, author *Author)
 	if message == "" {
 		return nil, errors.New(errors.ErrInvalidInput, "Commit message cannot be empty")
 	}
-	
+
 	// Set author if provided
 	args := []string{"commit", "-m", message}
 	if author != nil && author.Name != "" && author.Email != "" {
 		args = append([]string{"commit", "--author", author.Name + " <" + author.Email + ">", "-m", message}, args[2:]...)
 	}
-	
+
 	_, err := r.exec(ctx, args...)
 	if err != nil {
 		return nil, r.wrapError(err, errors.ErrStorageFailure, "Failed to create commit")
 	}
-	
+
 	// Get the latest commit hash
 	hashOutput, err := r.exec(ctx, "rev-parse", "HEAD")
 	if err != nil {
 		return nil, r.wrapError(err, errors.ErrStorageFailure, "Failed to get commit hash")
 	}
-	
+
 	hash := strings.TrimSpace(string(hashOutput))
 	shortHash := hash
 	if len(hash) > 8 {
 		shortHash = hash[:8]
 	}
-	
+
 	// Build commit object
 	commit := &Commit{
 		Hash:      hash,
 		ShortHash: shortHash,
 		Message:   message,
 	}
-	
+
 	if author != nil {
 		commit.Author = *author
 	}
-	
+
 	return commit, errors.Envelope{}
 }
 
@@ -239,13 +239,13 @@ func (r *Repository) ListTags(ctx context.Context) ([]Tag, errors.Envelope) {
 	if simpleErr != nil {
 		return nil, r.wrapError(simpleErr, errors.ErrStorageFailure, "Failed to list tags")
 	}
-	
+
 	outputStr := strings.TrimSpace(string(simpleOutput))
-	
+
 	if outputStr == "" {
 		return []Tag{}, errors.Envelope{}
 	}
-	
+
 	// Create basic tags from simple listing
 	var tags []Tag
 	lines := strings.Split(outputStr, "\n")

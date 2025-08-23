@@ -14,10 +14,10 @@ import (
 
 // repositoryRouter implements Repository interface using hybrid CLI/go-git approach
 type repositoryRouter struct {
-	config   RepositoryConfig
-	cliRepo  *cli.Repository
+	config    RepositoryConfig
+	cliRepo   *cli.Repository
 	goGitRepo *gogit.Repository
-	path     string
+	path      string
 }
 
 // newRepositoryRouter creates a new hybrid repository implementation
