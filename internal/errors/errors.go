@@ -30,6 +30,10 @@ const (
 	ErrSchemaVersion      = "SCHEMA_VERSION_MISMATCH"
 	ErrMigrationFailure   = "MIGRATION_FAILURE"
 	
+	// Search errors
+	ErrSearchFailure     = "SEARCH_FAILURE"
+	ErrNoProject         = "NO_PROJECT"
+	
 	// General errors
 	ErrUnknown           = "UNKNOWN_ERROR"
 	ErrNotImplemented    = "NOT_IMPLEMENTED"

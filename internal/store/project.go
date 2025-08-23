@@ -7,21 +7,37 @@ import (
 
 	"github.com/rgehrsitz/archon/internal/errors"
 	"github.com/rgehrsitz/archon/internal/id"
+	"github.com/rgehrsitz/archon/internal/index"
 	"github.com/rgehrsitz/archon/internal/types"
 )
 
 // ProjectStore handles project-level operations: create/open project structure
 type ProjectStore struct {
-	basePath string
-	loader   *Loader
+	basePath     string
+	loader       *Loader
+	IndexManager *index.Manager
 }
 
 // NewProjectStore creates a new project store
-func NewProjectStore(basePath string) *ProjectStore {
-	return &ProjectStore{
-		basePath: basePath,
-		loader:   NewLoader(basePath),
+func NewProjectStore(basePath string) (*ProjectStore, error) {
+	indexManager, err := index.NewManager(basePath)
+	if err != nil {
+		return nil, err
 	}
+	
+	return &ProjectStore{
+		basePath:     basePath,
+		loader:       NewLoader(basePath),
+		IndexManager: indexManager,
+	}, nil
+}
+
+// Close cleanly shuts down the project store
+func (ps *ProjectStore) Close() error {
+	if ps.IndexManager != nil {
+		return ps.IndexManager.Close()
+	}
+	return nil
 }
 
 // CreateProject creates a new Archon project at the specified path

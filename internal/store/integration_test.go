@@ -11,7 +11,11 @@ func TestExampleProjectIntegration(t *testing.T) {
 	examplePath := "../../examples/projects/basic-hierarchy"
 	
 	// Test project store
-	projectStore := NewProjectStore(examplePath)
+	projectStore, err := NewProjectStore(examplePath)
+	if err != nil {
+		t.Fatalf("Failed to create project store: %v", err)
+	}
+	defer projectStore.Close()
 	
 	if !projectStore.ProjectExists() {
 		t.Skip("Example project not found - this is expected if running tests in isolation")
@@ -33,7 +37,7 @@ func TestExampleProjectIntegration(t *testing.T) {
 	}
 	
 	// Test node store
-	nodeStore := NewNodeStore(examplePath)
+	nodeStore := NewNodeStore(examplePath, projectStore.IndexManager)
 	
 	// Load root node
 	rootNode, err := nodeStore.GetNode(project.RootID)
@@ -120,7 +124,11 @@ func TestProjectCreationAndManipulation(t *testing.T) {
 	tmpDir := createTempDir(t)
 	
 	// Create new project
-	projectStore := NewProjectStore(tmpDir)
+	projectStore, err := NewProjectStore(tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to create project store: %v", err)
+	}
+	defer projectStore.Close()
 	
 	settings := map[string]any{
 		"name":        "Test Integration Project",
@@ -138,7 +146,7 @@ func TestProjectCreationAndManipulation(t *testing.T) {
 	}
 	
 	// Test node operations
-	nodeStore := NewNodeStore(tmpDir)
+	nodeStore := NewNodeStore(tmpDir, projectStore.IndexManager)
 	
 	// Get root node
 	rootNode, err := nodeStore.GetNode(project.RootID)

@@ -179,7 +179,7 @@ func (s *NodeService) GetRootNode(ctx context.Context) (*types.Node, errors.Enve
 		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to get project info", err)
 	}
 	
-	nodeStore := store.NewNodeStore(currentPath)
+	nodeStore := store.NewNodeStore(currentPath, s.projectService.currentProject.IndexManager)
 	rootNode, storeErr := nodeStore.GetNode(project.RootID)
 	if storeErr != nil {
 		if envelope, ok := storeErr.(errors.Envelope); ok {
@@ -279,5 +279,9 @@ func (s *NodeService) getNodeStore() (*store.NodeStore, errors.Envelope) {
 		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
 	}
 	
-	return store.NewNodeStore(currentPath), errors.Envelope{}
+	if s.projectService.currentProject == nil {
+		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
+	}
+	
+	return store.NewNodeStore(currentPath, s.projectService.currentProject.IndexManager), errors.Envelope{}
 }

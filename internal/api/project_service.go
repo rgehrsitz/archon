@@ -29,7 +29,10 @@ func (s *ProjectService) CreateProject(ctx context.Context, path string, setting
 	}
 	
 	// Create project store
-	projectStore := store.NewProjectStore(cleanPath)
+	projectStore, err := store.NewProjectStore(cleanPath)
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to initialize project store", err)
+	}
 	
 	// Create the project
 	project, storeErr := projectStore.CreateProject(settings)
@@ -56,7 +59,10 @@ func (s *ProjectService) OpenProject(ctx context.Context, path string) (*types.P
 	}
 	
 	// Create project store
-	projectStore := store.NewProjectStore(cleanPath)
+	projectStore, err := store.NewProjectStore(cleanPath)
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to initialize project store", err)
+	}
 	
 	// Open the project
 	project, storeErr := projectStore.OpenProject()
@@ -125,7 +131,11 @@ func (s *ProjectService) ProjectExists(ctx context.Context, path string) (bool, 
 		return false, errors.WrapError(errors.ErrInvalidPath, "Invalid project path", err)
 	}
 	
-	projectStore := store.NewProjectStore(cleanPath)
+	projectStore, err := store.NewProjectStore(cleanPath)
+	if err != nil {
+		return false, errors.WrapError(errors.ErrStorageFailure, "Failed to initialize project store", err)
+	}
+	defer projectStore.Close()
 	return projectStore.ProjectExists(), errors.Envelope{}
 }
 
