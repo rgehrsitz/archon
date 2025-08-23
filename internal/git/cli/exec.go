@@ -81,13 +81,7 @@ func (r *Repository) execLines(ctx context.Context, args ...string) ([]string, e
 	return lines, scanner.Err()
 }
 
-// Helper method to ensure we're in a repository directory
-func (r *Repository) ensureRepo() error {
-	if r.config.Path == "" {
-		return fmt.Errorf("repository path not set")
-	}
-	return nil
-}
+// (ensureRepo previously enforced repository path; not used currently.)
 
 // Helper to convert git CLI error to Archon error envelope
 func (r *Repository) wrapError(err error, code string, message string) errors.Envelope {

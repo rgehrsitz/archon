@@ -39,6 +39,19 @@
 				"$go"
 			],
 			"group": "build"
+		},
+		{
+			"label": "go vet + tests",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go vet ./... && go test ./..."
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
 		}
 	]
 }

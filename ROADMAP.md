@@ -81,12 +81,14 @@ Currently no active development tasks.
   - Git repository initialization and LFS setup
   - Remote repository configuration and sync
   - Wails service integration with project-aware operations
+  - Tag listing via go-git; tag creation via CLI
 
 - [ ] **Snapshot System** - Commit + immutable tag pairs
-  - Create snapshots (commit + tag)
-  - Snapshot metadata and notes
-  - Linear history presentation in UI
-  - Snapshot comparison and restoration
+  - [x] Create snapshots (commit + tag)
+  - [x] Snapshot metadata file (`.archon/snapshots/<name>.json`)
+  - [x] List/get snapshots and restore by name
+  - [ ] Linear history presentation in UI
+  - [ ] Snapshot comparison UI and diff integration
 
 - [ ] **Semantic Diff Engine** - Rename/move/property change detection (ADR-003)
   - Structured change detection (not text-based)

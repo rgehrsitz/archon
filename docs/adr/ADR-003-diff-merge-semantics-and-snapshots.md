@@ -42,7 +42,7 @@ Semantic diff/merge maps to how domain experts think (“moved this module”, �
 
 - Go merge engine: `internal/merge/semantic.go` (diff), `internal/merge/three_way.go` (3-way), `internal/merge/types.go`.
 - UI: `src/lib/diff/DiffViewer.svelte`, `src/lib/diff/MergePanel.svelte`.
-- Snapshot/tag: `internal/git/service.go` with unique tag enforcement; optional `snapshots/<tag>.json` for notes.
+- Snapshot/tag: Hybrid implementation — tag and commit creation via Git CLI; tag enumeration via go-git for speed. Manager in `internal/snapshot/` writes metadata to `.archon/snapshots/<name>.json` and restores by commit hash.
 - Tests: property/structure/move/rename/reorder/delete-edge cases; golden tests.
 
 ## Review / Revisit

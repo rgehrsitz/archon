@@ -12,6 +12,11 @@ Archon is a desktop knowledge workbench for hierarchical projects with first-cla
 - **Git**: Hybrid layer — system git for porcelain/LFS/creds; go-git for fast reads.
 - **Reliability**: Error envelopes, rotating logs, autosave & crash safety.
 
+Note for developers:
+
+- If your local SQLite lacks FTS5, Archon detects this at runtime and disables the index automatically (search features won’t be available). You can also set `ARCHON_DISABLE_INDEX=1` to disable indexing in tests.
+- Snapshots are implemented as commit + immutable tag pairs; tags are created via the Git CLI and listed via go-git for speed.
+
 ## Quick Start
 
 Prereqs: Go 1.23+, Node 18+, Wails CLI.
@@ -80,15 +85,17 @@ All shadcn-svelte components are pre-installed and ready to use:
 - [Node.js](https://nodejs.org/) (version 16 or later)
 - [Wails CLI](https://wails.io/docs/gettingstarted/installation)
 
-### Quick Start
+### Template Quick Start
 
 1. Clone this template:
+
 ```bash
 git clone https://github.com/your-username/wails2-svelte5-tailwind4-ts-vite.git
 cd wails2-svelte5-tailwind4-ts-vite
 ```
 
-2. Install dependencies:
+1. Install dependencies:
+
 ```bash
 # Frontend dependencies are installed automatically by Wails
 wails dev
@@ -103,12 +110,14 @@ wails dev
 ```
 
 This will:
+
 - Start a Go backend server
 - Launch a Vite development server with hot reload
 - Open your application in a native window
-- Enable access via browser at http://localhost:34115
+- Enable access via browser at <http://localhost:34115>
 
 For frontend-only development:
+
 ```bash
 cd frontend
 npm run dev
@@ -162,7 +171,7 @@ Dark mode is automatically configured. Toggle between themes:
 
 ## Project Structure
 
-```
+```text
 ├── frontend/                    # Svelte frontend application
 │   ├── src/
 │   │   ├── lib/
@@ -223,6 +232,7 @@ npx shadcn-svelte@latest add [component-name]
 ```
 
 For example:
+
 ```bash
 npx shadcn-svelte@latest add calendar
 npx shadcn-svelte@latest add date-picker
@@ -233,21 +243,25 @@ npx shadcn-svelte@latest add date-picker
 This template provides a solid foundation that's easy to extend:
 
 ### Adding Custom Styles
+
 - Modify `frontend/src/style.css` for global styles
 - Customize color schemes by updating CSS custom properties
 - Add custom Tailwind utilities using the `@layer` directive
 
 ### Extending Components
+
 - All shadcn-svelte components are in your codebase and fully customizable
 - Create new components in `frontend/src/lib/components/`
 - Follow the established patterns for consistency
 
 ### Go Backend Integration
+
 - Add your application logic in Go files
 - Use Wails context for frontend-backend communication
 - Leverage Go's standard library and ecosystem
 
 ### Environment Configuration
+
 - Configure different environments in `wails.json`
 - Set up environment variables for different build targets
 - Customize build flags and assets per platform
@@ -255,16 +269,19 @@ This template provides a solid foundation that's easy to extend:
 ## Development Tips
 
 ### Hot Reload
+
 - Changes to Svelte components reload instantly
 - Go code changes trigger automatic recompilation
 - CSS changes apply immediately with Vite HMR
 
 ### Debugging
+
 - Use browser dev tools for frontend debugging
 - Access frontend in browser mode: `http://localhost:34115`
 - Use Go debugging tools for backend investigation
 
 ### Performance
+
 - Vite handles optimal bundling and tree shaking
 - Tailwind CSS purges unused styles automatically
 - shadcn-svelte components are lightweight and performant
@@ -272,6 +289,7 @@ This template provides a solid foundation that's easy to extend:
 ## Browser Compatibility
 
 This template supports modern browsers with:
+
 - ES2020+ features
 - CSS custom properties
 - CSS Grid and Flexbox
@@ -296,6 +314,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Support
 
 If you find this template helpful, please consider:
+
 - ⭐ Starring the repository
 - 🐛 Reporting issues
 - 💡 Suggesting improvements

@@ -33,11 +33,13 @@ SQLite is ubiquitous, lightweight, and fast. Keeping the index rebuildable avoid
 
 - Positive: Instant search/filter at scale; no external services.
 - Negative: Extra file and update path; need to handle index corruption gracefully.
+- Operational: If the platform SQLite lacks FTS5, the index manager automatically disables itself and the app remains functional without search; tests set `ARCHON_DISABLE_INDEX=1` where appropriate.
 - Follow-ups: Tokenization for non-Latin scripts; collation tuning; property-specific indexes by domain if needed.
 
 ## Implementation Notes
 
 - Indexer: `internal/index/sqlite/` (writer queue to avoid contention).
+- Auto-fallback: `internal/index/index.go` disables the index when SQLite reports `no such module: fts5` and logs a warning.
 - Rebuild: `archon index rebuild` CLI and background task on clone/import.
 - Backup: Exclude `.archon/index/` from backups; it’s a cache.
 - Tests: Consistency (node save → index updated), FTS queries, rebuild-from-scratch.
