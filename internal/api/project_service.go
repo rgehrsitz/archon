@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/rgehrsitz/archon/internal/errors"
+	"github.com/rgehrsitz/archon/internal/migrate"
 	"github.com/rgehrsitz/archon/internal/logging"
 	"github.com/rgehrsitz/archon/internal/store"
 	"github.com/rgehrsitz/archon/internal/types"
@@ -14,6 +15,7 @@ import (
 type ProjectService struct {
 	currentProject *store.ProjectStore
 	currentPath    string
+	readOnly       bool
 }
 
 // NewProjectService creates a new project service
@@ -47,6 +49,7 @@ func (s *ProjectService) CreateProject(ctx context.Context, path string, setting
 	// Set as current project
 	s.currentProject = projectStore
 	s.currentPath = cleanPath
+	s.readOnly = false
 
 	// Initialize logging for this project based on environment; non-fatal if it fails
 	if err := logging.InitializeFromEnvironment(cleanPath); err != nil {
@@ -65,21 +68,68 @@ func (s *ProjectService) OpenProject(ctx context.Context, path string) (*types.P
 		return nil, errors.WrapError(errors.ErrInvalidPath, "Invalid project path", err)
 	}
 	
-	// Create project store
+	// Create project store (index, etc.)
 	projectStore, err := store.NewProjectStore(cleanPath)
 	if err != nil {
 		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to initialize project store", err)
 	}
-	
-	// Open the project
-	project, storeErr := projectStore.OpenProject()
-	if storeErr != nil {
-		if envelope, ok := storeErr.(errors.Envelope); ok {
+
+	// Load project directly to inspect schema without validation blocking migration of legacy versions
+	loader := store.NewLoader(cleanPath)
+	project, loadErr := loader.LoadProject()
+	if loadErr != nil {
+		if envelope, ok := loadErr.(errors.Envelope); ok {
 			return nil, envelope
 		}
-		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to open project", storeErr)
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to load project", loadErr)
 	}
-	
+
+	// Determine read-only vs migration path
+	s.readOnly = false
+	if project.SchemaVersion > types.CurrentSchemaVersion {
+		// Newer project than app: read-only per ADR-007. Validate via store.
+		s.readOnly = true
+		opened, storeErr := projectStore.OpenProject()
+		if storeErr != nil {
+			if envelope, ok := storeErr.(errors.Envelope); ok {
+				return nil, envelope
+			}
+			return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to open project", storeErr)
+		}
+		project = opened
+	} else if project.SchemaVersion < types.CurrentSchemaVersion {
+		// Older project: perform backup and run forward migrations before validation
+		if _, err := migrate.CreateBackup(cleanPath); err != nil {
+			return nil, errors.WrapError(errors.ErrMigrationFailure, "Failed to create pre-migration backup", err)
+		}
+		if err := migrate.Run(cleanPath, project.SchemaVersion, types.CurrentSchemaVersion); err != nil {
+			return nil, errors.WrapError(errors.ErrMigrationFailure, "Migration failed", err)
+		}
+		// Reload via ProjectStore to validate
+		opened, storeErr := projectStore.OpenProject()
+		if storeErr != nil {
+			if envelope, ok := storeErr.(errors.Envelope); ok {
+				return nil, envelope
+			}
+			return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to reload project post-migration", storeErr)
+		}
+		project = opened
+		// Verify schema version matches target after migration
+		if project.SchemaVersion != types.CurrentSchemaVersion {
+			return nil, errors.New(errors.ErrMigrationFailure, "Post-migration schema version mismatch")
+		}
+	} else {
+		// Equal schema: open normally (validates)
+		opened, storeErr := projectStore.OpenProject()
+		if storeErr != nil {
+			if envelope, ok := storeErr.(errors.Envelope); ok {
+				return nil, envelope
+			}
+			return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to open project", storeErr)
+		}
+		project = opened
+	}
+
 	// Set as current project
 	s.currentProject = projectStore
 	s.currentPath = cleanPath
@@ -97,6 +147,7 @@ func (s *ProjectService) OpenProject(ctx context.Context, path string) (*types.P
 func (s *ProjectService) CloseProject(ctx context.Context) errors.Envelope {
 	s.currentProject = nil
 	s.currentPath = ""
+	s.readOnly = false
 	return errors.Envelope{}
 }
 
@@ -116,6 +167,7 @@ func (s *ProjectService) GetProjectInfo(ctx context.Context) (map[string]any, er
 	
 	// Add current path to info
 	info["currentPath"] = s.currentPath
+	info["readOnly"] = s.readOnly
 	
 	return info, errors.Envelope{}
 }
@@ -124,6 +176,9 @@ func (s *ProjectService) GetProjectInfo(ctx context.Context) (map[string]any, er
 func (s *ProjectService) UpdateProjectSettings(ctx context.Context, settings map[string]any) errors.Envelope {
 	if s.currentProject == nil {
 		return errors.New(errors.ErrProjectNotFound, "No project currently open")
+	}
+	if s.readOnly {
+		return errors.New(errors.ErrSchemaVersion, "Project is opened read-only due to newer schema; writes are disabled")
 	}
 	
 	err := s.currentProject.UpdateProjectSettings(settings)

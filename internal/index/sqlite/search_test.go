@@ -9,6 +9,7 @@ import (
 )
 
 func setupTestDB(t *testing.T) (*DB, *IndexWriter, *SearchEngine, func()) {
+	skipIfNoFTS5(t)
 	tempDir, err := os.MkdirTemp("", "archon-search-test")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)

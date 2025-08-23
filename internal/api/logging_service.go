@@ -249,14 +249,17 @@ func (s *LoggingService) GetRecentLogs(ctx context.Context, limit int) ([]map[st
 
 // UpdateLoggingConfig updates the logging configuration
 func (s *LoggingService) UpdateLoggingConfig(ctx context.Context, updates map[string]interface{}) errors.Envelope {
-	if s.projectService.currentProject == nil {
-		return errors.New(errors.ErrNoProject, "No project is currently open")
-	}
-	
-	_, currentPath := s.projectService.GetCurrentProject()
-	if currentPath == "" {
-		return errors.New(errors.ErrNoProject, "No current project path available")
-	}
+    if s.projectService.currentProject == nil {
+        return errors.New(errors.ErrNoProject, "No project is currently open")
+    }
+    if s.projectService.readOnly {
+        return errors.New(errors.ErrSchemaVersion, "Project is opened read-only due to newer schema; writes are disabled")
+    }
+
+    _, currentPath := s.projectService.GetCurrentProject()
+    if currentPath == "" {
+        return errors.New(errors.ErrNoProject, "No current project path available")
+    }
 	
 	// Get current environment (could be enhanced to detect from project settings)
 	environment := logging.GetEnvironmentFromOS()

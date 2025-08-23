@@ -10,6 +10,7 @@ import (
 )
 
 func TestDB_Open(t *testing.T) {
+	skipIfNoFTS5(t)
 	tempDir, err := os.MkdirTemp("", "archon-db-test")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
@@ -35,6 +36,7 @@ func TestDB_Open(t *testing.T) {
 }
 
 func TestDB_GetSchemaVersion(t *testing.T) {
+	skipIfNoFTS5(t)
 	tempDir, err := os.MkdirTemp("", "archon-db-test")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
@@ -58,6 +60,7 @@ func TestDB_GetSchemaVersion(t *testing.T) {
 }
 
 func TestDB_TablesExist(t *testing.T) {
+	skipIfNoFTS5(t)
 	tempDir, err := os.MkdirTemp("", "archon-db-test")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
@@ -93,6 +96,7 @@ func TestDB_TablesExist(t *testing.T) {
 }
 
 func TestIndexWriter_Integration(t *testing.T) {
+	skipIfNoFTS5(t)
 	tempDir, err := os.MkdirTemp("", "archon-writer-test")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
