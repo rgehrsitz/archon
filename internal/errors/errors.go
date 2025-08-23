@@ -25,6 +25,7 @@ const (
 	ErrGitFailure         = "GIT_FAILURE"
 	ErrNotRepository      = "NOT_REPOSITORY"
 	ErrRemoteFailure      = "REMOTE_FAILURE"
+	ErrNotFound           = "NOT_FOUND"
 	
 	// Schema errors
 	ErrSchemaVersion      = "SCHEMA_VERSION_MISMATCH"

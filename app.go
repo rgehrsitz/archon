@@ -9,10 +9,12 @@ import (
 
 // App struct contains the application services
 type App struct {
-	ctx            context.Context
-	projectService *api.ProjectService
-	nodeService    *api.NodeService
-	loggingService *api.LoggingService
+	ctx              context.Context
+	projectService   *api.ProjectService
+	nodeService      *api.NodeService
+	loggingService   *api.LoggingService
+	migrationService *api.MigrationService
+	gitService       *api.GitService
 }
 
 // NewApp creates a new App application struct
@@ -20,11 +22,15 @@ func NewApp() *App {
 	projectService := api.NewProjectService()
 	nodeService := api.NewNodeService(projectService)
 	loggingService := api.NewLoggingService(projectService)
+	migrationService := api.NewMigrationService()
+	gitService := api.NewGitService(projectService)
 	
 	return &App{
-		projectService: projectService,
-		nodeService:    nodeService,
-		loggingService: loggingService,
+		projectService:   projectService,
+		nodeService:      nodeService,
+		loggingService:   loggingService,
+		migrationService: migrationService,
+		gitService:       gitService,
 	}
 }
 
@@ -53,4 +59,14 @@ func (a *App) GetNodeService() *api.NodeService {
 // GetLoggingService returns the logging service for Wails binding
 func (a *App) GetLoggingService() *api.LoggingService {
 	return a.loggingService
+}
+
+// GetMigrationService returns the migration service for Wails binding
+func (a *App) GetMigrationService() *api.MigrationService {
+	return a.migrationService
+}
+
+// GetGitService returns the git service for Wails binding
+func (a *App) GetGitService() *api.GitService {
+	return a.gitService
 }

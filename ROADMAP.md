@@ -67,7 +67,7 @@ Currently no active development tasks.
   - Configurable log levels
   - Recent logs retrieval with rotation awareness (includes `.gz`)
 
-- [ ] **Schema Migration System** - Forward-only migrations with backup (ADR-007)
+- [x] **Schema Migration System** - Forward-only migrations with backup (ADR-007)
   - Versioned migration steps
   - Automatic backup creation in `/backups/<ISO8601>/`
   - Read-only mode for newer schemas
@@ -173,21 +173,21 @@ Currently no active development tasks.
 
 ## 🎯 Current Focus
 
-**Recommended Next Steps:** Phase 1 (Data Layer Extensions)
+**Recommended Next Steps:** Phase 2 (Git & Versioning Layer)
 
-1. SQLite Search Index - Critical for UI responsiveness
-2. Schema Migration - Required before user releases
+1. Git Integration - Hybrid CLI/go-git implementation for version control
+2. Snapshot System - Commit + immutable tag pairs for user-friendly versioning
 
 ## 📊 Progress Summary
 
 - **Foundation Layer**: ✅ Complete (6/6 major components)
-- **Data Extensions**: ⏳ 1/3 components
+- **Data Extensions**: ✅ Complete (3/3 components)
 - **Git & Versioning**: ⏳ 0/4 components  
 - **Content & Plugins**: ⏳ 0/3 components
 - **User Interface**: ⏳ 0/6 components
 - **Distribution**: ⏳ 0/2 components
 
-**Overall Progress**: ~30% complete (foundation + search index complete)
+**Overall Progress**: ~45% complete (foundation + data layer extensions complete)
 
 ---
 
