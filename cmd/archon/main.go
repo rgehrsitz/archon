@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/rgehrsitz/archon/internal/git"
 	"github.com/rgehrsitz/archon/internal/merge"
 	"github.com/rgehrsitz/archon/internal/snapshot"
+	"github.com/rgehrsitz/archon/internal/store"
 )
 
 func main() {
@@ -24,9 +26,10 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Archon CLI (MVP)\n")
 		fmt.Fprintf(os.Stderr, "Usage: archon [--project path] <command> [args]\n")
-		fmt.Fprintf(os.Stderr, "Commands: open | index | snapshot | diff | merge | export (stubs)\n")
+		fmt.Fprintf(os.Stderr, "Commands: open | index | snapshot | diff | merge | attachment | export (stubs)\n")
 		fmt.Fprintf(os.Stderr, "\nDiff usage:\n  archon --project <path> diff [--summary-only] [--json] [--semantic] <from> <to>\n")
 		fmt.Fprintf(os.Stderr, "\nMerge usage:\n  archon --project <path> merge [--dry-run] [--json] <base> <ours> <theirs>\n")
+		fmt.Fprintf(os.Stderr, "\nAttachment usage:\n  archon --project <path> attachment <add|list|get|remove|verify|gc> [args]\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -49,6 +52,11 @@ func main() {
 	case "merge":
 		if err := runMerge(projectPath, flag.Args()[1:]); err != nil {
 			fmt.Fprintln(os.Stderr, "merge:", err)
+			os.Exit(1)
+		}
+	case "attachment":
+		if err := runAttachment(projectPath, flag.Args()[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, "attachment:", err)
 			os.Exit(1)
 		}
 	case "open", "index", "export":
@@ -431,4 +439,297 @@ func printChanges(changes []semdiff.Change, label string) {
 			fmt.Printf("  - %s %s\n", change.Type, change.NodeID)
 		}
 	}
+}
+
+func runAttachment(projectPath string, args []string) error {
+	if projectPath == "" {
+		return fmt.Errorf("--project path is required")
+	}
+	if len(args) == 0 {
+		return fmt.Errorf("usage: archon --project <path> attachment <add|list|get|remove|verify|gc> [args]")
+	}
+
+	sub := args[0]
+	attachStore := store.NewAttachmentStore(projectPath)
+
+	// Configure Git LFS if we're in a Git repository
+	if repo, err := git.NewRepository(git.RepositoryConfig{Path: projectPath}); err == nil {
+		attachStore = attachStore.WithGitRepository(repo)
+		defer repo.Close()
+	}
+
+	switch sub {
+	case "add":
+		return runAttachmentAdd(attachStore, args[1:])
+	case "list":
+		return runAttachmentList(attachStore, args[1:])
+	case "get":
+		return runAttachmentGet(attachStore, args[1:])
+	case "remove", "rm":
+		return runAttachmentRemove(attachStore, args[1:])
+	case "verify":
+		return runAttachmentVerify(attachStore, args[1:])
+	case "gc":
+		return runAttachmentGC(attachStore, args[1:])
+	default:
+		return fmt.Errorf("unknown attachment subcommand: %s", sub)
+	}
+}
+
+func runAttachmentAdd(attachStore *store.AttachmentStore, args []string) error {
+	// Subcommand flags
+	fs := flag.NewFlagSet("attachment add", flag.ContinueOnError)
+	jsonOut := fs.Bool("json", false, "Output machine-readable JSON")
+	name := fs.String("name", "", "Override filename for the attachment")
+	
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	
+	rem := fs.Args()
+	if len(rem) == 0 {
+		return fmt.Errorf("usage: archon attachment add [--json] [--name filename] <file-path|->\nUse '-' to read from stdin")
+	}
+	
+	filePath := rem[0]
+	var reader io.Reader
+	var filename string
+	
+	if filePath == "-" {
+		reader = os.Stdin
+		filename = "stdin"
+		if *name != "" {
+			filename = *name
+		}
+	} else {
+		file, err := os.Open(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to open file: %w", err)
+		}
+		defer file.Close()
+		reader = file
+		filename = filePath
+		if *name != "" {
+			filename = *name
+		}
+	}
+	
+	attachment, err := attachStore.Store(reader, filename)
+	if err != nil {
+		return fmt.Errorf("failed to store attachment: %w", err)
+	}
+	
+	if *jsonOut {
+		return json.NewEncoder(os.Stdout).Encode(attachment)
+	}
+	
+	fmt.Printf("Stored attachment: %s (%d bytes)\n", attachment.Hash, attachment.Size)
+	fmt.Printf("Filename: %s\n", attachment.Filename)
+	return nil
+}
+
+func runAttachmentList(attachStore *store.AttachmentStore, args []string) error {
+	// Subcommand flags
+	fs := flag.NewFlagSet("attachment list", flag.ContinueOnError)
+	jsonOut := fs.Bool("json", false, "Output machine-readable JSON")
+	
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	
+	attachments, err := attachStore.List()
+	if err != nil {
+		return fmt.Errorf("failed to list attachments: %w", err)
+	}
+	
+	if *jsonOut {
+		return json.NewEncoder(os.Stdout).Encode(attachments)
+	}
+	
+	if len(attachments) == 0 {
+		fmt.Println("No attachments found")
+		return nil
+	}
+	
+	fmt.Printf("Found %d attachment(s):\n", len(attachments))
+	fmt.Printf("%-64s %-10s %-5s %s\n", "HASH", "SIZE", "LFS", "STORED")
+	fmt.Println(strings.Repeat("-", 90))
+	
+	for _, att := range attachments {
+		lfsFlag := " "
+		if att.IsLFS {
+			lfsFlag = "L"
+		}
+		fmt.Printf("%-64s %-10d %-5s %s\n", att.Hash, att.Size, lfsFlag, att.StoredAt.Format("2006-01-02 15:04"))
+	}
+	return nil
+}
+
+func runAttachmentGet(attachStore *store.AttachmentStore, args []string) error {
+	// Subcommand flags
+	fs := flag.NewFlagSet("attachment get", flag.ContinueOnError)
+	output := fs.String("output", "", "Output file path (default: stdout)")
+	
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	
+	rem := fs.Args()
+	if len(rem) == 0 {
+		return fmt.Errorf("usage: archon attachment get [--output file] <hash>")
+	}
+	
+	hash := rem[0]
+	reader, err := attachStore.Retrieve(hash)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve attachment: %w", err)
+	}
+	defer reader.Close()
+	
+	var writer io.Writer = os.Stdout
+	var outputFile *os.File
+	
+	if *output != "" {
+		outputFile, err = os.Create(*output)
+		if err != nil {
+			return fmt.Errorf("failed to create output file: %w", err)
+		}
+		defer outputFile.Close()
+		writer = outputFile
+	}
+	
+	written, err := io.Copy(writer, reader)
+	if err != nil {
+		return fmt.Errorf("failed to copy attachment data: %w", err)
+	}
+	
+	if *output != "" {
+		fmt.Printf("Retrieved attachment %s to %s (%d bytes)\n", hash, *output, written)
+	}
+	
+	return nil
+}
+
+func runAttachmentRemove(attachStore *store.AttachmentStore, args []string) error {
+	// Subcommand flags
+	fs := flag.NewFlagSet("attachment remove", flag.ContinueOnError)
+	force := fs.Bool("force", false, "Skip confirmation prompts")
+	
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	
+	rem := fs.Args()
+	if len(rem) == 0 {
+		return fmt.Errorf("usage: archon attachment remove [--force] <hash>")
+	}
+	
+	hash := rem[0]
+	
+	// Get info first to show what we're deleting
+	info, err := attachStore.GetInfo(hash)
+	if err != nil {
+		return fmt.Errorf("failed to get attachment info: %w", err)
+	}
+	
+	if !*force {
+		fmt.Printf("Delete attachment %s (%d bytes, stored %s)? [y/N]: ", 
+			hash, info.Size, info.StoredAt.Format("2006-01-02 15:04"))
+		var response string
+		fmt.Scanln(&response)
+		if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+			fmt.Println("Cancelled")
+			return nil
+		}
+	}
+	
+	if err := attachStore.Delete(hash); err != nil {
+		return fmt.Errorf("failed to delete attachment: %w", err)
+	}
+	
+	fmt.Printf("Deleted attachment: %s\n", hash)
+	return nil
+}
+
+func runAttachmentVerify(attachStore *store.AttachmentStore, args []string) error {
+	// Subcommand flags
+	fs := flag.NewFlagSet("attachment verify", flag.ContinueOnError)
+	all := fs.Bool("all", false, "Verify all attachments")
+	
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	
+	rem := fs.Args()
+	
+	if *all {
+		attachments, err := attachStore.List()
+		if err != nil {
+			return fmt.Errorf("failed to list attachments: %w", err)
+		}
+		
+		var failed []string
+		fmt.Printf("Verifying %d attachment(s)...\n", len(attachments))
+		
+		for _, att := range attachments {
+			if err := attachStore.Verify(att.Hash); err != nil {
+				fmt.Printf("FAIL %s: %v\n", att.Hash, err)
+				failed = append(failed, att.Hash)
+			} else {
+				fmt.Printf("OK   %s\n", att.Hash)
+			}
+		}
+		
+		if len(failed) > 0 {
+			return fmt.Errorf("verification failed for %d attachment(s)", len(failed))
+		}
+		
+		fmt.Println("All attachments verified successfully")
+		return nil
+	}
+	
+	if len(rem) == 0 {
+		return fmt.Errorf("usage: archon attachment verify [--all] [hash...]")
+	}
+	
+	var failed []string
+	for _, hash := range rem {
+		if err := attachStore.Verify(hash); err != nil {
+			fmt.Printf("FAIL %s: %v\n", hash, err)
+			failed = append(failed, hash)
+		} else {
+			fmt.Printf("OK   %s\n", hash)
+		}
+	}
+	
+	if len(failed) > 0 {
+		return fmt.Errorf("verification failed for %d attachment(s)", len(failed))
+	}
+	
+	return nil
+}
+
+func runAttachmentGC(_ *store.AttachmentStore, args []string) error {
+	// Subcommand flags
+	fs := flag.NewFlagSet("attachment gc", flag.ContinueOnError)
+	dryRun := fs.Bool("dry-run", false, "Show what would be deleted without actually deleting")
+	
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	
+	// TODO: This is a placeholder implementation. The real implementation would:
+	// 1. Scan all nodes to find referenced attachment hashes
+	// 2. Compare with stored attachments
+	// 3. Delete unreferenced attachments
+	
+	if *dryRun {
+		fmt.Println("Garbage collection (dry-run): not yet implemented")
+		fmt.Println("This would scan all nodes and remove unreferenced attachments")
+	} else {
+		fmt.Println("Garbage collection: not yet implemented")
+		fmt.Println("Use --dry-run to preview what would be deleted")
+	}
+	
+	return fmt.Errorf("garbage collection not yet implemented")
 }

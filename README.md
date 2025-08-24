@@ -106,6 +106,62 @@ archon --project ~/Projects/Example merge --json HEAD~2 HEAD~1 HEAD
 archon --project ~/Projects/Example merge --verbose --dry-run base ours theirs
 ```
 
+### CLI: Attachment command
+
+Manage content-addressed file attachments with automatic deduplication and Git LFS integration:
+
+```bash
+archon --project /path/to/project attachment <add|list|get|remove|verify|gc> [args]
+```
+
+Subcommands:
+
+- `add [--json] [--name filename] <file-path|->` stores a file as an attachment. Use `-` to read from stdin.
+- `list [--json]` shows all stored attachments with hash, size, LFS status, and storage date.
+- `get [--output file] <hash>` retrieves an attachment by hash. Outputs to stdout by default.
+- `remove [--force] <hash>` deletes an attachment after confirmation (use `--force` to skip prompt).
+- `verify [--all] [hash...]` verifies attachment integrity by recomputing SHA-256 hashes.
+- `gc [--dry-run]` garbage collection for unreferenced attachments (not yet implemented).
+
+The attachment system features:
+
+- **Content-addressed storage** using SHA-256 hashing for deduplication
+- **Automatic Git LFS integration** for files ≥1MB (configurable threshold)
+- **Path sharding** for efficient file organization (`attachments/AB/ABC123...`)
+- **Integrity verification** through hash validation
+- **Reference validation** for attachment properties in nodes
+
+Examples:
+
+```bash
+# Add a file attachment
+archon --project ~/Projects/Example attachment add document.pdf
+
+# Add from stdin with custom name
+echo "Content" | archon --project ~/Projects/Example attachment add --name note.txt -
+
+# List all attachments
+archon --project ~/Projects/Example attachment list
+
+# Get attachment content (outputs to terminal)
+archon --project ~/Projects/Example attachment get a1b2c3d4...
+
+# Save attachment to file
+archon --project ~/Projects/Example attachment get --output retrieved.pdf a1b2c3d4...
+
+# Verify all attachment integrity
+archon --project ~/Projects/Example attachment verify --all
+
+# Remove attachment (with confirmation)
+archon --project ~/Projects/Example attachment remove a1b2c3d4...
+
+# Force remove without confirmation
+archon --project ~/Projects/Example attachment remove --force a1b2c3d4...
+
+# Preview garbage collection
+archon --project ~/Projects/Example attachment gc --dry-run
+```
+
 ## Project Layout (brief)
 
 - `internal/` — core packages: `store/`, `index/sqlite/`, `git/`, `merge/`, `migrate/`, `api/`, `types/`.

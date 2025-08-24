@@ -110,11 +110,15 @@ Currently no active development tasks.
 
 ### Phase 3: Content & Plugin System
 
-- [ ] **Content-Addressed Attachments** - LFS integration for ≥1MB files (ADR-002)
-  - Content hashing and deduplication
-  - Git LFS integration for large files
-  - Attachment reference validation
-  - Garbage collection for unused attachments
+- [x] **Content-Addressed Attachments** - LFS integration for ≥1MB files (ADR-002)
+  - [x] Content hashing and deduplication using SHA-256
+  - [x] Git LFS integration for large files (≥1MB configurable threshold)
+  - [x] Attachment reference validation for node properties
+  - [x] Attachment management API (store, retrieve, delete, verify)
+  - [x] CLI commands for attachment operations (add, list, get, remove, verify)
+  - [x] Path sharding for efficient file organization
+  - [x] Comprehensive test coverage for attachment system
+  - [ ] Garbage collection for unused attachments (placeholder implementation)
 
 - [ ] **Import Plugin System** - Sandboxed JS/TS workers (ADR-004)
   - Web Worker sandbox environment
@@ -178,6 +182,7 @@ Currently no active development tasks.
   - [x] Three-way merge command with conflict detection and resolution
   - [x] Semantic diff command with filtering and JSON output  
   - [x] Snapshot management commands (create, list, restore)
+  - [x] Attachment management commands (add, list, get, remove, verify)
   - [x] Comprehensive test coverage for CLI commands
   - [ ] Project operations (create, open, validate)
   - [ ] Node manipulation commands  
@@ -186,9 +191,9 @@ Currently no active development tasks.
 
 ## 🎯 Current Focus
 
-**Recommended Next Steps:** Move to Content & Plugin System
+**Recommended Next Steps:** Content system complete, move to Import Plugin System
 
-1. **Content-Addressed Attachments** - Implement LFS integration for large files (next immediate priority as discussed)
+1. **Import Plugin System** - Implement sandboxed JS/TS workers for extensible data import
 2. Consider Snapshot System UI integration - Linear history presentation and snapshot comparison UI  
 3. Build & Release pipeline for distributing the CLI tools
 
@@ -197,11 +202,11 @@ Currently no active development tasks.
 - **Foundation Layer**: ✅ Complete (6/6 major components)
 - **Data Extensions**: ✅ Complete (3/3 components)
 - **Git & Versioning**: ✅ 3/4 components (Git Integration, Semantic Diff, 3-Way Merge core functionality complete)
-- **Content & Plugins**: ⏳ 0/3 components
+- **Content & Plugins**: ✅ 1/3 components (Content-Addressed Attachments complete)
 - **User Interface**: ⏳ 0/6 components
 - **Distribution**: ⏳ 1/2 components (CLI Interface core functionality complete)
 
-**Overall Progress**: ~70% complete (foundation + data + git/versioning + CLI core features complete)
+**Overall Progress**: ~75% complete (foundation + data + git/versioning + content + CLI core features complete)
 
 ---
 
