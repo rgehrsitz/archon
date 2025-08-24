@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	semdiff "github.com/rgehrsitz/archon/internal/diff/semantic"
 	"github.com/rgehrsitz/archon/internal/git"
 	"github.com/rgehrsitz/archon/internal/snapshot"
 )
@@ -22,7 +23,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Archon CLI (MVP)\n")
 		fmt.Fprintf(os.Stderr, "Usage: archon [--project path] <command> [args]\n")
 		fmt.Fprintf(os.Stderr, "Commands: open | index | snapshot | diff | export (stubs)\n")
-		fmt.Fprintf(os.Stderr, "\nDiff usage:\n  archon --project <path> diff [--summary-only] [--json] <from> <to>\n")
+		fmt.Fprintf(os.Stderr, "\nDiff usage:\n  archon --project <path> diff [--summary-only] [--json] [--semantic] <from> <to>\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -125,6 +126,10 @@ func runDiff(projectPath string, args []string) error {
 	fs := flag.NewFlagSet("diff", flag.ContinueOnError)
 	summaryOnly := fs.Bool("summary-only", false, "Print only the summary line (no per-file changes)")
 	jsonOut := fs.Bool("json", false, "Output machine-readable JSON (full diff unless --summary-only is set)")
+	semantic := fs.Bool("semantic", false, "Compute semantic (node-aware) diff instead of textual file diff")
+	nameOnly := fs.Bool("name-only", false, "Show only file names of changes (textual diff mode)")
+	nameStatus := fs.Bool("name-status", false, "Show status letter and file names (textual diff mode)")
+	exitCode := fs.Bool("exit-code", false, "Set exit code to 1 if there are changes, 0 otherwise (textual diff mode)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -136,6 +141,37 @@ func runDiff(projectPath string, args []string) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	// Semantic mode: compute and print JSON or summary
+	if *semantic {
+		res, env := semdiff.Diff(projectPath, from, to)
+		if env.Code != "" {
+			return fmt.Errorf("failed to compute semantic diff: %s", env.Message)
+		}
+		if *jsonOut {
+			if *summaryOnly {
+				out := struct {
+					From    string          `json:"from"`
+					To      string          `json:"to"`
+					Summary semdiff.Summary `json:"summary"`
+				}{From: res.From, To: res.To, Summary: res.Summary}
+				return json.NewEncoder(os.Stdout).Encode(out)
+			}
+			return json.NewEncoder(os.Stdout).Encode(res)
+		}
+		// Text summary
+		fmt.Printf("%s..%s semantic: %d changes (added:%d removed:%d renamed:%d moved:%d props:%d order:%d)\n",
+			res.From, res.To, res.Summary.Total, res.Summary.Added, res.Summary.Removed, res.Summary.Renamed,
+			res.Summary.Moved, res.Summary.PropertyChanged, res.Summary.OrderChanged)
+		if *summaryOnly {
+			return nil
+		}
+		// If not summary-only and not JSON, keep output minimal for now
+		for _, c := range res.Changes {
+			fmt.Printf("%s\t%s\n", c.Type, c.NodeID)
+		}
+		return nil
+	}
 
 	repo, err := git.NewRepository(git.RepositoryConfig{Path: projectPath})
 	if err != nil {
@@ -189,7 +225,20 @@ func runDiff(projectPath string, args []string) error {
 		if f.Status == git.FileStatusRenamed && f.OldPath != "" {
 			path = fmt.Sprintf("%s -> %s", f.OldPath, f.Path)
 		}
+		if *nameOnly {
+			fmt.Println(path)
+			continue
+		}
+		if *nameStatus {
+			fmt.Printf("%s\t%s\n", status, path)
+			continue
+		}
 		fmt.Printf("%s\t%s\t+%d -%d\n", status, path, f.Additions, f.Deletions)
+	}
+	if *exitCode {
+		if d.Summary.FilesChanged > 0 {
+			os.Exit(1)
+		}
 	}
 	return nil
 }

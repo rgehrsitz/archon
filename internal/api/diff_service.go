@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 
+	semdiff "github.com/rgehrsitz/archon/internal/diff/semantic"
 	"github.com/rgehrsitz/archon/internal/errors"
 	"github.com/rgehrsitz/archon/internal/git"
 )
@@ -29,6 +30,25 @@ func (s *DiffService) Diff(ctx context.Context, refA, refB string) (*git.Diff, e
 	defer repo.Close()
 
 	return repo.GetDiff(ctx, refA, refB)
+}
+
+// DiffSemantic returns a semantic (node-aware) diff between two refs
+func (s *DiffService) DiffSemantic(ctx context.Context, refA, refB string) (*semdiff.Result, errors.Envelope) {
+	if s.projectService == nil || s.projectService.currentProject == nil {
+		return nil, errors.New(errors.ErrNoProject, "No project is currently open")
+	}
+
+	// Use repository path to read trees directly via go-git (no checkout)
+	repoPath := s.projectService.currentPath
+	if repoPath == "" {
+		return nil, errors.New(errors.ErrInvalidPath, "No current project path")
+	}
+
+	res, env := semdiff.Diff(repoPath, refA, refB)
+	if env.Code != "" {
+		return nil, env
+	}
+	return res, errors.Envelope{}
 }
 
 // Helper method to get a repository instance

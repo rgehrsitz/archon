@@ -208,6 +208,45 @@
 				"$go"
 			],
 			"group": "build"
+		},
+		{
+			"label": "build+test semantic diff backend",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go vet ./... && go build ./cmd/archon && go test ./... -count=1"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "rerun tests after semantic order tweak",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go test ./internal/diff/semantic -run TestSemanticDiffBasic -count=1 -v && go vet ./... && go build ./cmd/archon && go test ./... -count=1"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "run semantic tests and full suite",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go test ./internal/diff/semantic -count=1 -v && go vet ./... && go build ./cmd/archon && go test ./... -count=1"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
 		}
 	]
 }
