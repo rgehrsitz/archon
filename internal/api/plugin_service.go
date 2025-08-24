@@ -22,6 +22,30 @@ type PluginService struct {
 	hostService    *plugins.HostService
 }
 
+// PluginSecretsGet allows a plugin to retrieve a secret by key
+func (s *PluginService) PluginSecretsGet(ctx context.Context, pluginID string, key string) (*plugins.SecretValue, errors.Envelope) {
+    if err := s.ensureInitialized(); err.Code != "" {
+        return nil, err
+    }
+    return s.hostService.SecretsGet(ctx, pluginID, key)
+}
+
+// PluginSecretsList allows a plugin to list secret keys by prefix
+func (s *PluginService) PluginSecretsList(ctx context.Context, pluginID string, prefix string) ([]string, errors.Envelope) {
+    if err := s.ensureInitialized(); err.Code != "" {
+        return nil, err
+    }
+    return s.hostService.SecretsList(ctx, pluginID, prefix)
+}
+
+// PluginNetRequest allows a plugin to perform an outbound HTTP request via the host proxy
+func (s *PluginService) PluginNetRequest(ctx context.Context, pluginID string, req plugins.ProxyRequest) (plugins.ProxyResponse, errors.Envelope) {
+    if err := s.ensureInitialized(); err.Code != "" {
+        return plugins.ProxyResponse{}, err
+    }
+    return s.hostService.NetRequest(ctx, pluginID, req)
+}
+
 // NewPluginService creates a new plugin service
 func NewPluginService(logger logging.Logger, projectService *ProjectService) *PluginService {
 	return &PluginService{
@@ -52,13 +76,15 @@ func (s *PluginService) InitializePluginSystem(ctx context.Context) errors.Envel
 		return envelope
 	}
 
-	// Create host service
+	// Create host service (no secrets/proxy backends configured at API layer yet)
 	s.hostService = plugins.NewHostService(
 		s.logger,
 		nodeStore,
 		gitRepo,
 		indexManager,
 		s.pluginManager.GetPermissionManager(),
+		nil,
+		nil,
 	)
 
 	// Discover existing plugins

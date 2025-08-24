@@ -51,6 +51,30 @@ type PluginManifest struct {
 	Metadata      *PluginMetadata   `json:"metadata,omitempty"`
 }
 
+// SecretValue represents a secret returned to a plugin
+type SecretValue struct {
+    Name     string                 `json:"name"`
+    Value    string                 `json:"value"`
+    Redacted bool                   `json:"redacted"`
+    Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// ProxyRequest represents an outbound network request via the host proxy
+type ProxyRequest struct {
+    Method    string            `json:"method"`
+    URL       string            `json:"url"`
+    Headers   map[string]string `json:"headers,omitempty"`
+    Body      []byte            `json:"body,omitempty"`
+    TimeoutMs int               `json:"timeoutMs,omitempty"`
+}
+
+// ProxyResponse represents the response from an outbound network request
+type ProxyResponse struct {
+    Status  int               `json:"status"`
+    Headers map[string]string `json:"headers,omitempty"`
+    Body    []byte            `json:"body,omitempty"`
+}
+
 // PluginMetadata represents additional plugin metadata
 type PluginMetadata struct {
 	Category   string   `json:"category,omitempty"`

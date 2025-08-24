@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/rgehrsitz/archon/internal/errors"
 	"github.com/rgehrsitz/archon/internal/git"
@@ -19,6 +20,8 @@ type HostService struct {
 	gitRepo           git.Repository
 	indexManager      *index.Manager
 	permissionManager *PermissionManager
+	secretsStore      SecretsStore
+	proxyExecutor     ProxyExecutor
 }
 
 // NewHostService creates a new plugin host service
@@ -28,6 +31,8 @@ func NewHostService(
 	gitRepo git.Repository,
 	indexManager *index.Manager,
 	permissionManager *PermissionManager,
+	secretsStore SecretsStore,
+	proxyExecutor ProxyExecutor,
 ) *HostService {
 	return &HostService{
 		logger:            logger,
@@ -35,6 +40,8 @@ func NewHostService(
 		gitRepo:           gitRepo,
 		indexManager:      indexManager,
 		permissionManager: permissionManager,
+		secretsStore:      secretsStore,
+		proxyExecutor:     proxyExecutor,
 	}
 }
 
@@ -120,12 +127,88 @@ func (h *HostService) ApplyMutations(ctx context.Context, pluginID string, mutat
 
 	// Convert plugin mutations to store operations
 	for _, mutation := range mutations {
-		if envelope := h.applyMutation(ctx, mutation); envelope.Code != "" {
+		if envelope := h.applyMutation(mutation); envelope.Code != "" {
 			return envelope
 		}
 	}
 
 	return errors.Envelope{}
+}
+
+// SecretsGet returns a secret value by key (requires matching secrets:<key> permission)
+func (h *HostService) SecretsGet(ctx context.Context, pluginID string, key string) (*SecretValue, errors.Envelope) {
+    if key == "" {
+        return nil, errors.New(errors.ErrValidationFailure, "Secret key is required")
+    }
+
+    // Enforce secrets permission with exact key match; wildcard grants are honored by PermissionManager
+    reqPerm := Permission("secrets:" + key)
+    if !h.checkPermission(pluginID, reqPerm) {
+        return nil, errors.New(errors.ErrUnauthorized, "Plugin lacks secrets permission for "+key)
+    }
+
+    if h.secretsStore == nil {
+        return nil, errors.New(errors.ErrNotImplemented, "Secrets backend not configured")
+    }
+
+    val, ok, err := h.secretsStore.Get(ctx, key)
+    if err != nil {
+        return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to read secret", err)
+    }
+    if !ok || val == nil {
+        return nil, errors.New(errors.ErrNotFound, "Secret not found: "+key)
+    }
+
+    return val, errors.Envelope{}
+}
+
+// SecretsList lists secret keys by prefix (requires matching secrets:<prefix>* permission)
+func (h *HostService) SecretsList(ctx context.Context, pluginID string, prefix string) ([]string, errors.Envelope) {
+    if prefix == "" {
+        return nil, errors.New(errors.ErrValidationFailure, "Prefix is required")
+    }
+
+    // Require permission corresponding to the prefix; wildcard grants are honored by PermissionManager
+    reqPerm := Permission("secrets:" + prefix + "*")
+    if !h.checkPermission(pluginID, reqPerm) {
+        return nil, errors.New(errors.ErrUnauthorized, "Plugin lacks secrets permission for prefix "+prefix)
+    }
+
+    if h.secretsStore == nil {
+        return nil, errors.New(errors.ErrNotImplemented, "Secrets backend not configured")
+    }
+
+    keys, err := h.secretsStore.List(ctx, prefix)
+    if err != nil {
+        return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to list secrets", err)
+    }
+    return keys, errors.Envelope{}
+}
+
+// NetRequest performs an outbound HTTP request via the host proxy (requires PermissionNet)
+func (h *HostService) NetRequest(ctx context.Context, pluginID string, req ProxyRequest) (ProxyResponse, errors.Envelope) {
+    if !h.checkPermission(pluginID, PermissionNet) {
+        return ProxyResponse{}, errors.New(errors.ErrUnauthorized, "Plugin lacks net permission")
+    }
+    if req.URL == "" || req.Method == "" {
+        return ProxyResponse{}, errors.New(errors.ErrValidationFailure, "Method and URL are required")
+    }
+    if h.proxyExecutor == nil {
+        return ProxyResponse{}, errors.New(errors.ErrNotImplemented, "Proxy executor not configured")
+    }
+
+    // Apply timeout if provided
+    if req.TimeoutMs > 0 {
+        var cancel context.CancelFunc
+        ctx, cancel = context.WithTimeout(ctx, time.Duration(req.TimeoutMs)*time.Millisecond)
+        defer cancel()
+    }
+
+    resp, err := h.proxyExecutor.Do(ctx, req)
+    if err != nil {
+        return ProxyResponse{}, errors.WrapError(errors.ErrRemoteFailure, "Proxy request failed", err)
+    }
+    return resp, errors.Envelope{}
 }
 
 // Commit creates a commit with the current changes (requires writeRepo permission)
@@ -195,25 +278,25 @@ func (h *HostService) IndexPut(ctx context.Context, pluginID string, nodeID stri
 }
 
 // applyMutation applies a single mutation
-func (h *HostService) applyMutation(ctx context.Context, mutation *Mutation) errors.Envelope {
+func (h *HostService) applyMutation(mutation *Mutation) errors.Envelope {
 	switch mutation.Type {
 	case MutationCreate:
-		return h.applyCreateMutation(ctx, mutation)
+		return h.applyCreateMutation(mutation)
 	case MutationUpdate:
-		return h.applyUpdateMutation(ctx, mutation)
+		return h.applyUpdateMutation(mutation)
 	case MutationDelete:
-		return h.applyDeleteMutation(ctx, mutation)
+		return h.applyDeleteMutation(mutation)
 	case MutationMove:
-		return h.applyMoveMutation(ctx, mutation)
+		return h.applyMoveMutation(mutation)
 	case MutationReorder:
-		return h.applyReorderMutation(ctx, mutation)
+		return h.applyReorderMutation(mutation)
 	default:
 		return errors.New(errors.ErrValidationFailure, "Unknown mutation type: "+string(mutation.Type))
 	}
 }
 
 // applyCreateMutation creates a new node
-func (h *HostService) applyCreateMutation(ctx context.Context, mutation *Mutation) errors.Envelope {
+func (h *HostService) applyCreateMutation(mutation *Mutation) errors.Envelope {
 	if mutation.Data == nil {
 		return errors.New(errors.ErrValidationFailure, "Create mutation missing data")
 	}
@@ -241,7 +324,7 @@ func (h *HostService) applyCreateMutation(ctx context.Context, mutation *Mutatio
 }
 
 // applyUpdateMutation updates an existing node
-func (h *HostService) applyUpdateMutation(ctx context.Context, mutation *Mutation) errors.Envelope {
+func (h *HostService) applyUpdateMutation(mutation *Mutation) errors.Envelope {
 	if mutation.NodeID == "" {
 		return errors.New(errors.ErrValidationFailure, "Update mutation missing node ID")
 	}
@@ -275,7 +358,7 @@ func (h *HostService) applyUpdateMutation(ctx context.Context, mutation *Mutatio
 }
 
 // applyDeleteMutation deletes a node
-func (h *HostService) applyDeleteMutation(ctx context.Context, mutation *Mutation) errors.Envelope {
+func (h *HostService) applyDeleteMutation(mutation *Mutation) errors.Envelope {
 	if mutation.NodeID == "" {
 		return errors.New(errors.ErrValidationFailure, "Delete mutation missing node ID")
 	}
@@ -292,7 +375,7 @@ func (h *HostService) applyDeleteMutation(ctx context.Context, mutation *Mutatio
 }
 
 // applyMoveMutation moves a node to a new parent
-func (h *HostService) applyMoveMutation(ctx context.Context, mutation *Mutation) errors.Envelope {
+func (h *HostService) applyMoveMutation(mutation *Mutation) errors.Envelope {
 	if mutation.NodeID == "" {
 		return errors.New(errors.ErrValidationFailure, "Move mutation missing node ID")
 	}
@@ -319,7 +402,7 @@ func (h *HostService) applyMoveMutation(ctx context.Context, mutation *Mutation)
 }
 
 // applyReorderMutation reorders children of a parent node
-func (h *HostService) applyReorderMutation(ctx context.Context, mutation *Mutation) errors.Envelope {
+func (h *HostService) applyReorderMutation(mutation *Mutation) errors.Envelope {
 	if mutation.ParentID == "" {
 		return errors.New(errors.ErrValidationFailure, "Reorder mutation missing parent ID")
 	}
