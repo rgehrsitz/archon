@@ -38,13 +38,15 @@ wails build
 Compare two refs (commits or tags) and print a summary and per-file changes:
 
 ```bash
-archon --project /path/to/project diff [--summary-only] [--json] <from> <to>
+archon --project /path/to/project diff [--summary-only] [--json] [--semantic] [--only <filter>] <from> <to>
 ```
 
 Flags:
 
 - `--summary-only` prints just the one-line summary.
 - `--json` emits machine-readable JSON (full diff by default; combine with `--summary-only` to emit only the summary object).
+- `--semantic` performs semantic diff instead of textual diff, showing logical changes (renames, moves, property changes, etc.).
+- `--only <filter>` (semantic only) filters to show only specific change types: `added`, `removed`, `renamed`, `moved`, `property`, `order`, `attachment`. Can specify multiple comma-separated values.
 
 Examples:
 
@@ -57,6 +59,15 @@ archon --project ~/Projects/Example diff --summary-only v1.0.0 v1.1.0
 
 # JSON output
 archon --project ~/Projects/Example diff --json snapshot-initial-state snapshot-updated-state
+
+# Semantic diff showing all logical changes
+archon --project ~/Projects/Example diff --semantic HEAD~1 HEAD
+
+# Semantic diff showing only renames and moves
+archon --project ~/Projects/Example diff --semantic --only renamed,moved HEAD~1 HEAD
+
+# JSON semantic diff with summary only
+archon --project ~/Projects/Example diff --semantic --json --summary-only v1.0.0 v1.1.0
 ```
 
 ## Project Layout (brief)

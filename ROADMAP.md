@@ -45,6 +45,7 @@ This document tracks progress against the complete Archon vision as defined in t
 - [x] Example "basic-hierarchy" project (manufacturing plant)
 - [x] Proper module naming (github.com/rgehrsitz/archon)
 - [x] CLAUDE.md documentation for AI assistance
+- [x] CI workflow with GitHub Actions (vet, staticcheck, build, tests)
 
 ## 🔄 In Progress
 
@@ -91,17 +92,20 @@ Currently no active development tasks.
   - [ ] Linear history presentation in UI
   - [ ] Snapshot comparison UI and diff integration
 
-- [ ] **Semantic Diff Engine** - Rename/move/property change detection (ADR-003)
-  - Structured change detection (not text-based)
-  - Move detection via parent ID changes
-  - Property and structural change identification
-  - Diff serialization for storage and UI
+- [x] **Semantic Diff Engine** - Rename/move/property change detection (ADR-003)
+  - [x] Structured change detection (not text-based)
+  - [x] Move detection via parent ID changes
+  - [x] Property and structural change identification
+  - [x] Diff serialization for storage and UI
+  - [x] CLI filters with `--only` flag for change type filtering
+  - [x] Deterministic ordering of changes and output
 
-- [ ] **3-Way Merge System** - Conflict resolution with sibling ordering (ADR-003)
-  - Field-level merge resolution
-  - Sibling order conflict handling
-  - Interactive conflict resolution
-  - Merge strategy configuration
+- [x] **3-Way Merge System** - Conflict resolution with sibling ordering (ADR-003)
+  - [x] Field-level merge resolution and conflict detection
+  - [x] Non-conflicting change application (rename, move, property, order)
+  - [x] Comprehensive test coverage for conflict vs non-conflict scenarios
+  - [ ] Interactive conflict resolution
+  - [ ] Merge strategy configuration
 
 ### Phase 3: Content & Plugin System
 
@@ -177,23 +181,23 @@ Currently no active development tasks.
 
 ## 🎯 Current Focus
 
-**Recommended Next Steps:** Phase 2 (Git & Versioning Layer)
+**Recommended Next Steps:** Complete Phase 2 Git & Versioning Layer
 
-1. Git Integration - Hybrid CLI/go-git implementation for version control
-2. Snapshot System - Commit + immutable tag pairs for user-friendly versioning
+1. Finish Snapshot System UI integration - Linear history presentation and snapshot comparison UI
+2. Consider Phase 3 Content & Plugin System - Begin with content-addressed attachments for large files
 
 ## 📊 Progress Summary
 
 - **Foundation Layer**: ✅ Complete (6/6 major components)
 - **Data Extensions**: ✅ Complete (3/3 components)
-- **Git & Versioning**: ⏳ 1/4 components (Git Integration complete)
+- **Git & Versioning**: ✅ 3/4 components (Git Integration, Semantic Diff, 3-Way Merge core functionality complete)
 - **Content & Plugins**: ⏳ 0/3 components
 - **User Interface**: ⏳ 0/6 components
 - **Distribution**: ⏳ 0/2 components
 
-**Overall Progress**: ~50% complete (foundation + data + git integration complete)
+**Overall Progress**: ~65% complete (foundation + data + core git/versioning features complete)
 
 ---
 
-*Last Updated: 2025-08-23*
+*Last Updated: 2025-08-24*
 *Next Review: After Phase 1 completion*

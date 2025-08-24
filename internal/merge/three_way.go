@@ -1,9 +1,13 @@
 package merge
 
 import (
+	"encoding/json"
 	"path/filepath"
+	"time"
 
 	semdiff "github.com/rgehrsitz/archon/internal/diff/semantic"
+	"github.com/rgehrsitz/archon/internal/store"
+	"github.com/rgehrsitz/archon/internal/types"
 )
 
 // ThreeWay computes a basic 3-way semantic merge scaffolding between refs.
@@ -123,4 +127,162 @@ func mapProps(c semdiff.Change) map[string]string {
 
 func toConflict(key string, a, b semdiff.Change) Conflict {
 	return Conflict{Field: key, NodeID: a.NodeID, Ours: a, Theirs: b, Rule: "same field changed"}
+}
+
+// Apply applies non-conflicting changes from the resolution to the working tree
+// This modifies the current working tree files (no git operations)
+func (r *Resolution) Apply(repoPath string) error {
+	rp := filepath.Clean(repoPath)
+	loader := store.NewLoader(rp)
+	
+	// Apply changes in order: first theirs, then ours (ours takes precedence for same-priority changes)
+	allChanges := append(r.TheirsOnly, r.OursOnly...)
+	
+	for _, change := range allChanges {
+		if err := r.applyChange(loader, change); err != nil {
+			return err
+		}
+		r.Applied = append(r.Applied, change)
+	}
+	
+	return nil
+}
+
+// applyChange applies a single semantic change to the working tree
+func (r *Resolution) applyChange(loader *store.Loader, change semdiff.Change) error {
+	switch change.Type {
+	case semdiff.ChangeNodeRenamed:
+		return r.applyRename(loader, change)
+	case semdiff.ChangeNodeMoved:
+		return r.applyMove(loader, change)
+	case semdiff.ChangePropertyChanged:
+		return r.applyPropertyChange(loader, change)
+	case semdiff.ChangeOrderChanged:
+		return r.applyOrderChange(loader, change)
+	case semdiff.ChangeNodeAdded:
+		// TODO: Implement node addition - requires creating new node files
+		// This is more complex as it requires reconstructing node data from semantic diff
+		return nil
+	case semdiff.ChangeNodeRemoved:
+		// TODO: Implement node removal - requires careful cascade deletion
+		return nil
+	case semdiff.ChangeAttachmentChanged:
+		// TODO: Implement attachment changes - reserved for future
+		return nil
+	default:
+		return nil // Unknown change type, skip
+	}
+}
+
+// applyRename changes the name of a node
+func (r *Resolution) applyRename(loader *store.Loader, change semdiff.Change) error {
+	node, err := loader.LoadNode(change.NodeID)
+	if err != nil {
+		return err
+	}
+	
+	node.Name = change.NameTo
+	node.UpdatedAt = time.Now()
+	
+	return loader.SaveNode(node)
+}
+
+// applyMove changes the parent of a node
+func (r *Resolution) applyMove(loader *store.Loader, change semdiff.Change) error {
+	// Remove from old parent
+	if change.ParentFrom != "" {
+		oldParent, err := loader.LoadNode(change.ParentFrom)
+		if err != nil {
+			return err
+		}
+		
+		oldParent.Children = removeFromSlice(oldParent.Children, change.NodeID)
+		oldParent.UpdatedAt = time.Now()
+		if err := loader.SaveNode(oldParent); err != nil {
+			return err
+		}
+	}
+	
+	// Add to new parent
+	if change.ParentTo != "" {
+		newParent, err := loader.LoadNode(change.ParentTo)
+		if err != nil {
+			return err
+		}
+		
+		newParent.Children = append(newParent.Children, change.NodeID)
+		newParent.UpdatedAt = time.Now()
+		if err := loader.SaveNode(newParent); err != nil {
+			return err
+		}
+	}
+	
+	return nil
+}
+
+// applyPropertyChange updates properties on a node
+func (r *Resolution) applyPropertyChange(loader *store.Loader, change semdiff.Change) error {
+	node, err := loader.LoadNode(change.NodeID)
+	if err != nil {
+		return err
+	}
+	
+	if node.Properties == nil {
+		node.Properties = make(map[string]types.Property)
+	}
+	
+	// Apply each property delta
+	for _, delta := range change.ChangedProperties {
+		switch delta.Kind {
+		case "added", "updated":
+			if delta.Key == "description" {
+				// Description is a special case - unmarshal directly as string
+				var desc string
+				if err := json.Unmarshal(delta.New, &desc); err != nil {
+					return err
+				}
+				node.Description = desc
+			} else {
+				// Regular properties - unmarshal the Property structure
+				var prop types.Property
+				if err := json.Unmarshal(delta.New, &prop); err != nil {
+					return err
+				}
+				node.Properties[delta.Key] = prop
+			}
+		case "removed":
+			if delta.Key == "description" {
+				node.Description = ""
+			} else {
+				delete(node.Properties, delta.Key)
+			}
+		}
+	}
+	
+	node.UpdatedAt = time.Now()
+	return loader.SaveNode(node)
+}
+
+// applyOrderChange reorders children of a parent node
+func (r *Resolution) applyOrderChange(loader *store.Loader, change semdiff.Change) error {
+	parent, err := loader.LoadNode(change.ParentID)
+	if err != nil {
+		return err
+	}
+	
+	// Apply the new ordering
+	parent.Children = change.OrderTo
+	parent.UpdatedAt = time.Now()
+	
+	return loader.SaveNode(parent)
+}
+
+// removeFromSlice removes a value from a string slice
+func removeFromSlice(slice []string, value string) []string {
+	for i, v := range slice {
+		if v == value {
+			return append(slice[:i], slice[i+1:]...)
+		}
+	}
+	return slice
 }

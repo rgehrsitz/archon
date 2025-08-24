@@ -11,13 +11,15 @@ type Conflict struct {
 	Rule   string // reason/category
 }
 
-// Resolution summarizes a 3-way merge attempt (scaffolding, non-applying)
+// Resolution summarizes a 3-way merge attempt 
 type Resolution struct {
 	Base      string
 	Ours      string
 	Theirs    string
 	Conflicts []Conflict
-	// Changes that were non-conflicting (can be applied in a future step)
+	// Changes that were non-conflicting 
 	OursOnly   []semdiff.Change
 	TheirsOnly []semdiff.Change
+	// Applied changes (when Apply is called)
+	Applied []semdiff.Change
 }
