@@ -103,6 +103,7 @@ Currently no active development tasks.
 - [x] **3-Way Merge System** - Conflict resolution with sibling ordering (ADR-003)
   - [x] Field-level merge resolution and conflict detection
   - [x] Non-conflicting change application (rename, move, property, order)
+  - [x] CLI merge command with dry-run, JSON output, and verbose reporting
   - [x] Comprehensive test coverage for conflict vs non-conflict scenarios
   - [ ] Interactive conflict resolution
   - [ ] Merge strategy configuration
@@ -173,18 +174,23 @@ Currently no active development tasks.
   - Linux AppImage with GPG signatures
   - Automated release with checksums
 
-- [ ] **CLI Interface** - Automation commands for power users
-  - Project operations (create, open, validate)
-  - Node manipulation commands
-  - Import/export automation
-  - Scripting and batch operations
+- [x] **CLI Interface** - Automation commands for power users
+  - [x] Three-way merge command with conflict detection and resolution
+  - [x] Semantic diff command with filtering and JSON output  
+  - [x] Snapshot management commands (create, list, restore)
+  - [x] Comprehensive test coverage for CLI commands
+  - [ ] Project operations (create, open, validate)
+  - [ ] Node manipulation commands  
+  - [ ] Import/export automation
+  - [ ] Additional scripting and batch operations
 
 ## 🎯 Current Focus
 
-**Recommended Next Steps:** Complete Phase 2 Git & Versioning Layer
+**Recommended Next Steps:** Move to Content & Plugin System
 
-1. Finish Snapshot System UI integration - Linear history presentation and snapshot comparison UI
-2. Consider Phase 3 Content & Plugin System - Begin with content-addressed attachments for large files
+1. **Content-Addressed Attachments** - Implement LFS integration for large files (next immediate priority as discussed)
+2. Consider Snapshot System UI integration - Linear history presentation and snapshot comparison UI  
+3. Build & Release pipeline for distributing the CLI tools
 
 ## 📊 Progress Summary
 
@@ -193,9 +199,9 @@ Currently no active development tasks.
 - **Git & Versioning**: ✅ 3/4 components (Git Integration, Semantic Diff, 3-Way Merge core functionality complete)
 - **Content & Plugins**: ⏳ 0/3 components
 - **User Interface**: ⏳ 0/6 components
-- **Distribution**: ⏳ 0/2 components
+- **Distribution**: ⏳ 1/2 components (CLI Interface core functionality complete)
 
-**Overall Progress**: ~65% complete (foundation + data + core git/versioning features complete)
+**Overall Progress**: ~70% complete (foundation + data + git/versioning + CLI core features complete)
 
 ---
 

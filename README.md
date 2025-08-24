@@ -70,6 +70,42 @@ archon --project ~/Projects/Example diff --semantic --only renamed,moved HEAD~1 
 archon --project ~/Projects/Example diff --semantic --json --summary-only v1.0.0 v1.1.0
 ```
 
+### CLI: Merge command
+
+Perform three-way semantic merges to combine changes from different branches or commits:
+
+```bash
+archon --project /path/to/project merge [--dry-run] [--json] [--verbose] <base> <ours> <theirs>
+```
+
+Flags:
+
+- `--dry-run` shows what changes would be applied without modifying any files.
+- `--json` emits machine-readable JSON output containing the merge resolution.
+- `--verbose` displays detailed information about changes and conflicts.
+
+The merge command performs intelligent semantic merging:
+
+- **Non-conflicting changes** are automatically applied (renames, moves, property updates, reordering)
+- **Conflicts** are detected when both sides modify the same logical field differently
+- **Exit codes**: 0 for successful merge, 1 for conflicts detected
+
+Examples:
+
+```bash
+# Basic three-way merge
+archon --project ~/Projects/Example merge main-base feature-branch main-head
+
+# Dry run to preview changes
+archon --project ~/Projects/Example merge --dry-run base-commit our-commit their-commit
+
+# JSON output for automation
+archon --project ~/Projects/Example merge --json HEAD~2 HEAD~1 HEAD
+
+# Verbose output showing detailed changes
+archon --project ~/Projects/Example merge --verbose --dry-run base ours theirs
+```
+
 ## Project Layout (brief)
 
 - `internal/` — core packages: `store/`, `index/sqlite/`, `git/`, `merge/`, `migrate/`, `api/`, `types/`.

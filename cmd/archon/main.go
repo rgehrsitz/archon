@@ -12,6 +12,7 @@ import (
 
 	semdiff "github.com/rgehrsitz/archon/internal/diff/semantic"
 	"github.com/rgehrsitz/archon/internal/git"
+	"github.com/rgehrsitz/archon/internal/merge"
 	"github.com/rgehrsitz/archon/internal/snapshot"
 )
 
@@ -23,8 +24,9 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Archon CLI (MVP)\n")
 		fmt.Fprintf(os.Stderr, "Usage: archon [--project path] <command> [args]\n")
-		fmt.Fprintf(os.Stderr, "Commands: open | index | snapshot | diff | export (stubs)\n")
+		fmt.Fprintf(os.Stderr, "Commands: open | index | snapshot | diff | merge | export (stubs)\n")
 		fmt.Fprintf(os.Stderr, "\nDiff usage:\n  archon --project <path> diff [--summary-only] [--json] [--semantic] <from> <to>\n")
+		fmt.Fprintf(os.Stderr, "\nMerge usage:\n  archon --project <path> merge [--dry-run] [--json] <base> <ours> <theirs>\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -42,6 +44,11 @@ func main() {
 	case "diff":
 		if err := runDiff(projectPath, flag.Args()[1:]); err != nil {
 			fmt.Fprintln(os.Stderr, "diff:", err)
+			os.Exit(1)
+		}
+	case "merge":
+		if err := runMerge(projectPath, flag.Args()[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, "merge:", err)
 			os.Exit(1)
 		}
 	case "open", "index", "export":
@@ -313,4 +320,115 @@ func summarizeSemantic(changes []semdiff.Change) semdiff.Summary {
 		}
 	}
 	return s
+}
+
+func runMerge(projectPath string, args []string) error {
+	if projectPath == "" {
+		return fmt.Errorf("--project path is required")
+	}
+
+	// Subcommand flags
+	fs := flag.NewFlagSet("merge", flag.ContinueOnError)
+	dryRun := fs.Bool("dry-run", false, "Show what would be merged without applying changes")
+	jsonOut := fs.Bool("json", false, "Output machine-readable JSON")
+	verbose := fs.Bool("verbose", false, "Show detailed information about changes")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	rem := fs.Args()
+	if len(rem) < 3 {
+		return fmt.Errorf("usage: archon --project <path> merge [--dry-run] [--json] <base> <ours> <theirs>")
+	}
+
+	base, ours, theirs := rem[0], rem[1], rem[2]
+
+	// Perform the three-way merge
+	res, err := merge.ThreeWay(projectPath, base, ours, theirs)
+	if err != nil {
+		return fmt.Errorf("three-way merge failed: %w", err)
+	}
+
+	// JSON output mode
+	if *jsonOut {
+		return json.NewEncoder(os.Stdout).Encode(res)
+	}
+
+	// Text output mode
+	totalChanges := len(res.OursOnly) + len(res.TheirsOnly)
+	conflicts := len(res.Conflicts)
+
+	fmt.Printf("Three-way merge: %s <- %s + %s\n", base, ours, theirs)
+	fmt.Printf("Non-conflicting changes: %d (ours: %d, theirs: %d)\n", 
+		totalChanges, len(res.OursOnly), len(res.TheirsOnly))
+	
+	if conflicts > 0 {
+		fmt.Printf("Conflicts detected: %d\n", conflicts)
+		
+		if *verbose {
+			fmt.Println("\nConflicts:")
+			for _, conflict := range res.Conflicts {
+				fmt.Printf("  - %s: %s (%s)\n", conflict.NodeID, conflict.Field, conflict.Rule)
+			}
+		}
+		
+		fmt.Println("\nResolve conflicts manually before applying changes.")
+		return fmt.Errorf("merge has conflicts")
+	}
+
+	if totalChanges == 0 {
+		fmt.Println("No changes to apply.")
+		return nil
+	}
+
+	if *dryRun {
+		fmt.Println("\nChanges to be applied (dry-run):")
+		if *verbose {
+			printChanges(res.OursOnly, "Ours")
+			printChanges(res.TheirsOnly, "Theirs")
+		}
+		fmt.Printf("Use --dry-run=false to apply %d changes\n", totalChanges)
+		return nil
+	}
+
+	// Apply the changes
+	if err := res.Apply(projectPath); err != nil {
+		return fmt.Errorf("failed to apply merge changes: %w", err)
+	}
+
+	fmt.Printf("Successfully applied %d changes\n", len(res.Applied))
+	
+	if *verbose {
+		fmt.Println("\nApplied changes:")
+		printChanges(res.Applied, "Applied")
+	}
+
+	return nil
+}
+
+func printChanges(changes []semdiff.Change, label string) {
+	if len(changes) == 0 {
+		return
+	}
+	
+	fmt.Printf("\n%s changes:\n", label)
+	for _, change := range changes {
+		switch change.Type {
+		case semdiff.ChangeNodeRenamed:
+			fmt.Printf("  - Renamed %s: %s -> %s\n", change.NodeID, change.NameFrom, change.NameTo)
+		case semdiff.ChangeNodeMoved:
+			fmt.Printf("  - Moved %s: %s -> %s\n", change.NodeID, change.ParentFrom, change.ParentTo)
+		case semdiff.ChangePropertyChanged:
+			fmt.Printf("  - Properties changed %s: %d properties\n", change.NodeID, len(change.ChangedProperties))
+		case semdiff.ChangeOrderChanged:
+			fmt.Printf("  - Reordered children of %s: %d -> %d children\n", change.ParentID, len(change.OrderFrom), len(change.OrderTo))
+		case semdiff.ChangeNodeAdded:
+			fmt.Printf("  - Added node %s\n", change.NodeID)
+		case semdiff.ChangeNodeRemoved:
+			fmt.Printf("  - Removed node %s\n", change.NodeID)
+		default:
+			fmt.Printf("  - %s %s\n", change.Type, change.NodeID)
+		}
+	}
 }
