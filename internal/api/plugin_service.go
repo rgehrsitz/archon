@@ -76,16 +76,83 @@ func (s *PluginService) InitializePluginSystem(ctx context.Context) errors.Envel
 		return envelope
 	}
 
-	// Create host service (no secrets/proxy backends configured at API layer yet)
-	s.hostService = plugins.NewHostService(
-		s.logger,
-		nodeStore,
-		gitRepo,
-		indexManager,
-		s.pluginManager.GetPermissionManager(),
-		nil,
-		nil,
-	)
+    // Load project settings to configure policies
+    var proxyExec plugins.ProxyExecutor
+    var secretsStore plugins.SecretsStore
+
+    {
+        if info, err := projectStore.GetProjectInfo(); err == nil && info != nil {
+            settingsAny, ok := info["settings"]
+            var settings map[string]any
+            if ok {
+                if m, ok2 := settingsAny.(map[string]any); ok2 {
+                    settings = m
+                }
+            }
+
+            // Parse proxy policy
+            var proxyPolicy plugins.ProxyPolicy
+            if settings != nil {
+                if ppAny, ok := settings["proxyPolicy"]; ok {
+                    if m, ok2 := ppAny.(map[string]any); ok2 {
+                        // allowedMethods
+                        if v, ok := m["allowedMethods"].([]any); ok {
+                            for _, it := range v {
+                                if s, ok := it.(string); ok { proxyPolicy.AllowedMethods = append(proxyPolicy.AllowedMethods, s) }
+                            }
+                        }
+                        // allowHostSuffixes
+                        if v, ok := m["allowHostSuffixes"].([]any); ok {
+                            for _, it := range v {
+                                if s, ok := it.(string); ok { proxyPolicy.AllowHostSuffixes = append(proxyPolicy.AllowHostSuffixes, s) }
+                            }
+                        }
+                        // denyHostSuffixes
+                        if v, ok := m["denyHostSuffixes"].([]any); ok {
+                            for _, it := range v {
+                                if s, ok := it.(string); ok { proxyPolicy.DenyHostSuffixes = append(proxyPolicy.DenyHostSuffixes, s) }
+                            }
+                        }
+                        // redactResponseHeaders
+                        if v, ok := m["redactResponseHeaders"].([]any); ok {
+                            for _, it := range v {
+                                if s, ok := it.(string); ok { proxyPolicy.RedactResponseHeaders = append(proxyPolicy.RedactResponseHeaders, s) }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Build proxy executor with policy wrapper
+            baseHTTP := plugins.NewHTTPProxyExecutor(30 * time.Second)
+            proxyExec = plugins.NewPolicyProxyExecutor(baseHTTP, proxyPolicy)
+
+            // Parse secrets policy and build policy-wrapped store
+            var secretsPolicy plugins.SecretsPolicy
+            // default: ReturnValues=false (redact by default)
+            if settings != nil {
+                if spAny, ok := settings["secretsPolicy"]; ok {
+                    if m, ok2 := spAny.(map[string]any); ok2 {
+                        if rv, ok3 := m["returnValues"].(bool); ok3 {
+                            secretsPolicy.ReturnValues = rv
+                        }
+                    }
+                }
+            }
+            baseSecrets := plugins.NewInMemorySecretsStore(map[string]string{})
+            secretsStore = plugins.NewPolicySecretsStore(baseSecrets, secretsPolicy)
+        }
+    }
+
+    s.hostService = plugins.NewHostService(
+        s.logger,
+        nodeStore,
+        gitRepo,
+        indexManager,
+        s.pluginManager.GetPermissionManager(),
+        secretsStore,
+        proxyExec,
+    )
 
 	// Discover existing plugins
 	_, envelope = s.pluginManager.DiscoverPlugins(ctx)

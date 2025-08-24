@@ -61,6 +61,11 @@ __Just completed (2025-08-24)__
   - Corrected `ProjectService.GetCurrentProject()` usage and plugin dir path in `internal/api/plugin_service.go`
   - Replaced nonexistent `logging.Global()` with `*logging.GetLogger()` in `app.go`
   - Aligned index manager API usage in host/manager with `internal/index/index.go`
+  - Wired proxy and secrets policies via `PluginService.InitializePluginSystem()`
+    - `PolicyProxyExecutor` enforcing allowed methods, allow/deny host suffixes, and response header redaction
+    - `PolicySecretsStore` enforcing `returnValues` redaction policy (default false)
+    - Injected into `HostService` and added focused tests in `internal/plugins/policy_test.go`
+    - Documented config schema and defaults in `docs/implementation/policy-config.md`
 
 ## 📋 Pending (Prioritized Roadmap)
 

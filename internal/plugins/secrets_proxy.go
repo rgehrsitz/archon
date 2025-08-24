@@ -5,6 +5,8 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -46,6 +48,171 @@ func (s *InMemorySecretsStore) List(ctx context.Context, prefix string) ([]strin
 		}
 	}
 	return out, nil
+}
+
+// ProxyPolicy defines network execution policies enforced before/after HTTP calls
+type ProxyPolicy struct {
+	// Allowed HTTP methods (uppercased). If empty, allow common safe defaults: GET, POST, PUT, DELETE, PATCH, HEAD
+	AllowedMethods []string
+	// Allow only hosts that end with these suffixes (case-insensitive). If empty, allow all (minus denies)
+	AllowHostSuffixes []string
+	// Deny hosts that end with these suffixes (case-insensitive). Evaluated before allowlist
+	DenyHostSuffixes []string
+	// Redact these response header names (case-insensitive) in the returned ProxyResponse
+	RedactResponseHeaders []string
+}
+
+// PolicyProxyExecutor wraps a ProxyExecutor and enforces ProxyPolicy
+type PolicyProxyExecutor struct {
+	Inner  ProxyExecutor
+	Policy ProxyPolicy
+}
+
+func NewPolicyProxyExecutor(inner ProxyExecutor, policy ProxyPolicy) *PolicyProxyExecutor {
+	return &PolicyProxyExecutor{Inner: inner, Policy: policy}
+}
+
+func (p *PolicyProxyExecutor) Do(ctx context.Context, req ProxyRequest) (ProxyResponse, error) {
+	// Method restriction
+	if !p.methodAllowed(req.Method) {
+		return ProxyResponse{}, &PolicyError{Reason: "method_not_allowed"}
+	}
+
+	// Host allow/deny enforcement
+	if !p.hostAllowed(req.URL) {
+		return ProxyResponse{}, &PolicyError{Reason: "host_not_allowed"}
+	}
+
+	// Delegate
+	resp, err := p.Inner.Do(ctx, req)
+	if err != nil {
+		return resp, err
+	}
+
+	// Redact response headers as configured
+	if len(p.Policy.RedactResponseHeaders) > 0 && resp.Headers != nil {
+		resp.Headers = redactHeaders(resp.Headers, p.Policy.RedactResponseHeaders)
+	}
+	return resp, nil
+}
+
+// PolicyError represents a policy violation
+type PolicyError struct {
+	Reason string
+}
+
+func (e *PolicyError) Error() string { return e.Reason }
+
+func (p *PolicyProxyExecutor) methodAllowed(method string) bool {
+	m := strings.ToUpper(strings.TrimSpace(method))
+	if m == "" { return false }
+	if len(p.Policy.AllowedMethods) == 0 {
+		switch m {
+		case "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD":
+			return true
+		default:
+			return false
+		}
+	}
+	for _, allowed := range p.Policy.AllowedMethods {
+		if strings.EqualFold(allowed, m) {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *PolicyProxyExecutor) hostAllowed(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	// Deny has precedence
+	for _, d := range p.Policy.DenyHostSuffixes {
+		if hasHostSuffix(host, d) {
+			return false
+		}
+	}
+	// Allow list (if provided)
+	if len(p.Policy.AllowHostSuffixes) == 0 {
+		return true
+	}
+	for _, a := range p.Policy.AllowHostSuffixes {
+		if hasHostSuffix(host, a) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasHostSuffix(host, suffix string) bool {
+	s := strings.ToLower(strings.TrimSpace(suffix))
+	if s == "" { return false }
+	return strings.HasSuffix(host, s)
+}
+
+func redactHeaders(hdrs map[string]string, names []string) map[string]string {
+	if hdrs == nil { return nil }
+	out := make(map[string]string, len(hdrs))
+	for k, v := range hdrs {
+		redacted := false
+		for _, n := range names {
+			if strings.EqualFold(k, n) {
+				redacted = true
+				break
+			}
+		}
+		if redacted {
+			out[k] = "REDACTED"
+		} else {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+// SecretsPolicy defines behavior for exposing secrets to plugins
+type SecretsPolicy struct {
+	// If false, secret values are not returned to plugins; only metadata with Redacted=true
+	ReturnValues bool
+}
+
+// PolicySecretsStore wraps a SecretsStore to apply SecretsPolicy
+type PolicySecretsStore struct {
+	Inner  SecretsStore
+	Policy SecretsPolicy
+}
+
+func NewPolicySecretsStore(inner SecretsStore, policy SecretsPolicy) *PolicySecretsStore {
+	return &PolicySecretsStore{Inner: inner, Policy: policy}
+}
+
+func (p *PolicySecretsStore) Get(ctx context.Context, key string) (*SecretValue, bool, error) {
+	val, ok, err := p.Inner.Get(ctx, key)
+	if err != nil || !ok || val == nil {
+		return val, ok, err
+	}
+	if !p.Policy.ReturnValues {
+		// Redact the value before returning
+		redacted := &SecretValue{
+			Name:     val.Name,
+			Value:    "",
+			Redacted: true,
+			Metadata: val.Metadata,
+		}
+		return redacted, ok, nil
+	}
+	// Ensure Redacted flag is consistent
+	if val.Redacted && val.Value != "" {
+		// Clear the value if marked Redacted by backend
+		val.Value = ""
+	}
+	return val, ok, nil
+}
+
+func (p *PolicySecretsStore) List(ctx context.Context, prefix string) ([]string, error) {
+	return p.Inner.List(ctx, prefix)
 }
 
 // ProxyExecutor abstracts outbound HTTP execution.
