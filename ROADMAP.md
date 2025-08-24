@@ -120,17 +120,32 @@ Currently no active development tasks.
   - [x] Comprehensive test coverage for attachment system
   - [x] Garbage collection for unused attachments with dry-run support
 
-- [ ] **Import Plugin System** - Sandboxed JS/TS workers (ADR-004)
-  - Web Worker sandbox environment
-  - Plugin API definition and validation
-  - No filesystem/network access without consent
-  - Plugin lifecycle management
-
-- [ ] **CSV Import Plugin** - Example plugin implementation
-  - Demonstrate plugin architecture
-  - CSV parsing and validation
-  - Preview and mapping interface
-  - Error handling and rollback
+- [ ] **Comprehensive Plugin System** - Sandboxed extensibility platform (ADR-004, ADR-013)
+  - [ ] Core plugin runtime with Web Worker sandbox environment
+  - [ ] TypeScript API definitions and host service interfaces
+  - [ ] Permission system with least-privilege security model
+  - [ ] Plugin lifecycle management and event system
+  - [ ] **Plugin Types (10 categories):**
+    - [ ] **Importer** - Create nodes from external data sources
+    - [ ] **Exporter** - Serialize nodes/subtrees to external formats
+    - [ ] **Transformer** - Bulk edits and data transformations
+    - [ ] **Validator** - Read-only checks with commit/snapshot blocking
+    - [ ] **Panel** - Custom UI panels and visualizations
+    - [ ] **Provider** - External system connectors (CMDB/ERP/Jira)
+    - [ ] **AttachmentProcessor** - File analysis and metadata extraction
+    - [ ] **ConflictResolver** - Custom semantic merge strategies
+    - [ ] **SearchIndexer** - Domain-specific search tokenization
+    - [ ] **UIContrib** - Commands, menus, and contextual UI elements
+  - [ ] **Core Infrastructure:**
+    - [ ] Plugin manifest system with versioning and integrity
+    - [ ] Permission consent dialogs and runtime enforcement
+    - [ ] Plugin discovery and local installation (~/.archon/plugins)
+    - [ ] Secret management for external service authentication
+    - [ ] Event bus for lifecycle hooks and workflow automation
+  - [ ] **Reference Implementations:**
+    - [ ] CSV importer plugin (demonstrating Importer pattern)
+    - [ ] Jira provider plugin (Provider + Validator + Events)
+    - [ ] PDF processor plugin (AttachmentProcessor)
 
 ### Phase 4: User Interface
 
@@ -191,9 +206,9 @@ Currently no active development tasks.
 
 ## 🎯 Current Focus
 
-**Recommended Next Steps:** Content system complete, move to Import Plugin System
+**Recommended Next Steps:** Content system complete, move to Comprehensive Plugin System
 
-1. **Import Plugin System** - Implement sandboxed JS/TS workers for extensible data import
+1. **Comprehensive Plugin System** - Implement sandboxed extensibility platform with 10 plugin types per ADR-013
 2. Consider Snapshot System UI integration - Linear history presentation and snapshot comparison UI  
 3. Build & Release pipeline for distributing the CLI tools
 
@@ -202,11 +217,13 @@ Currently no active development tasks.
 - **Foundation Layer**: ✅ Complete (6/6 major components)
 - **Data Extensions**: ✅ Complete (3/3 components)
 - **Git & Versioning**: ✅ 3/4 components (Git Integration, Semantic Diff, 3-Way Merge core functionality complete)
-- **Content & Plugins**: ✅ 1/3 components (Content-Addressed Attachments complete)
+- **Content & Plugins**: ⏳ 1/2 components (Content-Addressed Attachments complete, Plugin System pending)
 - **User Interface**: ⏳ 0/6 components
 - **Distribution**: ⏳ 1/2 components (CLI Interface core functionality complete)
 
 **Overall Progress**: ~75% complete (foundation + data + git/versioning + content + CLI core features complete)
+
+**Note**: The Plugin System scope has been significantly expanded per ADR-013 to include 10 plugin types and comprehensive extensibility features, making it a major platform component rather than just import functionality.
 
 ---
 

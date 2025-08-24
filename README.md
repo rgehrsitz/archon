@@ -7,7 +7,7 @@ Archon is a desktop knowledge workbench for hierarchical projects with first-cla
 - **Storage**: `/project.json` + `/nodes/<id>.json` (authoritative), `/attachments/*` via LFS, rebuildable `/.archon/index/archon.db`.
 - **Identity**: UUIDv7 IDs, sibling-level unique names, meaningful child order.
 - **History**: Snapshots are commit + immutable tag; semantic diff/merge is the primary UX.
-- **Plugins**: Import plugins run in sandboxed JS/TS workers (no FS/net without consent).
+- **Plugins**: Comprehensive extensibility platform with 10 plugin types (Importers, Exporters, Transformers, Validators, Panels, Providers, etc.) running in sandboxed JS/TS workers with fine-grained permissions.
 - **Stack**: Wails v2 + Go backend, Svelte 5 + Tailwind 4 + shadcn-svelte frontend.
 - **Git**: Hybrid layer — system git for porcelain/LFS/creds; go-git for fast reads.
 - **Reliability**: Error envelopes, rotating logs, autosave & crash safety.
