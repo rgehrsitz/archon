@@ -98,12 +98,41 @@ func Diff(repoPath, from, to string) (*Result, errors.Envelope) {
 		}
 	}
 
-	// Sort changes by type then nodeId for stable output
-	sort.SliceStable(changes, func(i, j int) bool {
-		if changes[i].Type == changes[j].Type {
-			return changes[i].NodeID < changes[j].NodeID
+	// Ensure deterministic ordering within property deltas for each change
+	for i := range changes {
+		if len(changes[i].ChangedProperties) > 0 {
+			sort.SliceStable(changes[i].ChangedProperties, func(a, b int) bool {
+				if changes[i].ChangedProperties[a].Key == changes[i].ChangedProperties[b].Key {
+					return changes[i].ChangedProperties[a].Kind < changes[i].ChangedProperties[b].Kind
+				}
+				return changes[i].ChangedProperties[a].Key < changes[i].ChangedProperties[b].Key
+			})
 		}
-		return changes[i].Type < changes[j].Type
+	}
+
+	// Sort changes deterministically: by a fixed type order, then by key (nodeId or parentId), then by name fields
+	sort.SliceStable(changes, func(i, j int) bool {
+		ti, tj := rankType(changes[i].Type), rankType(changes[j].Type)
+		if ti != tj {
+			return ti < tj
+		}
+		// Key for tie-break: for OrderChanged use ParentID; otherwise NodeID
+		ki := changes[i].NodeID
+		if changes[i].Type == ChangeOrderChanged {
+			ki = changes[i].ParentID
+		}
+		kj := changes[j].NodeID
+		if changes[j].Type == ChangeOrderChanged {
+			kj = changes[j].ParentID
+		}
+		if ki != kj {
+			return ki < kj
+		}
+		// Final tie-breaker on NameFrom/NameTo to keep output stable across equal IDs
+		if changes[i].NameFrom != changes[j].NameFrom {
+			return changes[i].NameFrom < changes[j].NameFrom
+		}
+		return changes[i].NameTo < changes[j].NameTo
 	})
 
 	sum := summarize(changes)
@@ -158,25 +187,6 @@ func equalProperty(a, b types.Property) bool {
 
 func jsonMarshal(v any) ([]byte, error) { return json.Marshal(v) }
 
-func sameSet(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	m := make(map[string]int, len(a))
-	for _, x := range a {
-		m[x]++
-	}
-	for _, y := range b {
-		m[y]--
-	}
-	for _, c := range m {
-		if c != 0 {
-			return false
-		}
-	}
-	return true
-}
-
 func sameOrder(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -213,4 +223,26 @@ func summarize(changes []Change) Summary {
 		}
 	}
 	return s
+}
+
+// rankType provides a deterministic ordering for change types in listings
+func rankType(t ChangeType) int {
+	switch t {
+	case ChangeNodeAdded:
+		return 0
+	case ChangeNodeRemoved:
+		return 1
+	case ChangeNodeRenamed:
+		return 2
+	case ChangeNodeMoved:
+		return 3
+	case ChangePropertyChanged:
+		return 4
+	case ChangeOrderChanged:
+		return 5
+	case ChangeAttachmentChanged:
+		return 6
+	default:
+		return 99
+	}
 }

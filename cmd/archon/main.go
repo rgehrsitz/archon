@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -127,6 +128,7 @@ func runDiff(projectPath string, args []string) error {
 	summaryOnly := fs.Bool("summary-only", false, "Print only the summary line (no per-file changes)")
 	jsonOut := fs.Bool("json", false, "Output machine-readable JSON (full diff unless --summary-only is set)")
 	semantic := fs.Bool("semantic", false, "Compute semantic (node-aware) diff instead of textual file diff")
+	only := fs.String("only", "", "Filter semantic changes to a comma-separated list: added,removed,renamed,moved,property,order,attachment (semantic mode)")
 	nameOnly := fs.Bool("name-only", false, "Show only file names of changes (textual diff mode)")
 	nameStatus := fs.Bool("name-status", false, "Show status letter and file names (textual diff mode)")
 	exitCode := fs.Bool("exit-code", false, "Set exit code to 1 if there are changes, 0 otherwise (textual diff mode)")
@@ -148,26 +150,45 @@ func runDiff(projectPath string, args []string) error {
 		if env.Code != "" {
 			return fmt.Errorf("failed to compute semantic diff: %s", env.Message)
 		}
+
+		// Optional filtering
+		filtered := *res
+		if *only != "" {
+			allow := map[string]bool{}
+			for _, part := range strings.Split(*only, ",") {
+				k := strings.ToLower(strings.TrimSpace(part))
+				if k != "" {
+					allow[k] = true
+				}
+			}
+			filtered.Changes = nil
+			for _, c := range res.Changes {
+				if semanticAllowed(allow, c.Type) {
+					filtered.Changes = append(filtered.Changes, c)
+				}
+			}
+			filtered.Summary = summarizeSemantic(filtered.Changes)
+		}
 		if *jsonOut {
 			if *summaryOnly {
 				out := struct {
 					From    string          `json:"from"`
 					To      string          `json:"to"`
 					Summary semdiff.Summary `json:"summary"`
-				}{From: res.From, To: res.To, Summary: res.Summary}
+				}{From: filtered.From, To: filtered.To, Summary: filtered.Summary}
 				return json.NewEncoder(os.Stdout).Encode(out)
 			}
-			return json.NewEncoder(os.Stdout).Encode(res)
+			return json.NewEncoder(os.Stdout).Encode(filtered)
 		}
 		// Text summary
 		fmt.Printf("%s..%s semantic: %d changes (added:%d removed:%d renamed:%d moved:%d props:%d order:%d)\n",
-			res.From, res.To, res.Summary.Total, res.Summary.Added, res.Summary.Removed, res.Summary.Renamed,
-			res.Summary.Moved, res.Summary.PropertyChanged, res.Summary.OrderChanged)
+			filtered.From, filtered.To, filtered.Summary.Total, filtered.Summary.Added, filtered.Summary.Removed, filtered.Summary.Renamed,
+			filtered.Summary.Moved, filtered.Summary.PropertyChanged, filtered.Summary.OrderChanged)
 		if *summaryOnly {
 			return nil
 		}
 		// If not summary-only and not JSON, keep output minimal for now
-		for _, c := range res.Changes {
+		for _, c := range filtered.Changes {
 			fmt.Printf("%s\t%s\n", c.Type, c.NodeID)
 		}
 		return nil
@@ -205,7 +226,8 @@ func runDiff(projectPath string, args []string) error {
 		return nil
 	}
 
-	// Per-file details
+	// Per-file details (sorted by path for deterministic output)
+	sort.SliceStable(d.Files, func(i, j int) bool { return d.Files[i].Path < d.Files[j].Path })
 	for _, f := range d.Files {
 		var status string
 		switch f.Status {
@@ -241,4 +263,54 @@ func runDiff(projectPath string, args []string) error {
 		}
 	}
 	return nil
+}
+
+// semanticAllowed maps CLI filter terms to change types
+func semanticAllowed(allow map[string]bool, t semdiff.ChangeType) bool {
+	if len(allow) == 0 {
+		return true
+	}
+	switch t {
+	case semdiff.ChangeNodeAdded:
+		return allow["added"] || allow["add"]
+	case semdiff.ChangeNodeRemoved:
+		return allow["removed"] || allow["remove"] || allow["deleted"] || allow["delete"]
+	case semdiff.ChangeNodeRenamed:
+		return allow["renamed"] || allow["rename"]
+	case semdiff.ChangeNodeMoved:
+		return allow["moved"] || allow["move"]
+	case semdiff.ChangePropertyChanged:
+		return allow["property"] || allow["properties"] || allow["prop"]
+	case semdiff.ChangeOrderChanged:
+		return allow["order"] || allow["reorder"]
+	case semdiff.ChangeAttachmentChanged:
+		return allow["attachment"] || allow["attachments"]
+	default:
+		return false
+	}
+}
+
+// summarizeSemantic recomputes Summary for a filtered list
+func summarizeSemantic(changes []semdiff.Change) semdiff.Summary {
+	var s semdiff.Summary
+	s.Total = len(changes)
+	for _, c := range changes {
+		switch c.Type {
+		case semdiff.ChangeNodeAdded:
+			s.Added++
+		case semdiff.ChangeNodeRemoved:
+			s.Removed++
+		case semdiff.ChangeNodeRenamed:
+			s.Renamed++
+		case semdiff.ChangeNodeMoved:
+			s.Moved++
+		case semdiff.ChangePropertyChanged:
+			s.PropertyChanged++
+		case semdiff.ChangeOrderChanged:
+			s.OrderChanged++
+		case semdiff.ChangeAttachmentChanged:
+			s.AttachmentChanged++
+		}
+	}
+	return s
 }

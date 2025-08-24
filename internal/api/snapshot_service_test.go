@@ -17,7 +17,7 @@ func TestSnapshotService_NoProject(t *testing.T) {
 		Name:    "test-snapshot",
 		Message: "Test snapshot",
 	}
-	
+
 	_, env := service.Create(ctx, req)
 	if env.Code == "" {
 		t.Error("Expected error when creating snapshot without project")
@@ -54,7 +54,7 @@ func TestSnapshotService_WithProjectService(t *testing.T) {
 		Name:    "test-snapshot",
 		Message: "Test snapshot",
 	}
-	
+
 	_, env := service.Create(ctx, req)
 	if env.Code == "" {
 		t.Error("Expected error when no project is open")
@@ -78,6 +78,9 @@ func TestCreateSnapshotRequest_Validation(t *testing.T) {
 	}
 	if req.Message != "Test message" {
 		t.Errorf("Expected message 'Test message', got '%s'", req.Message)
+	}
+	if req.Description != "Test description" {
+		t.Errorf("Expected description 'Test description', got '%s'", req.Description)
 	}
 	if req.Labels["env"] != "test" {
 		t.Errorf("Expected label env='test', got '%s'", req.Labels["env"])

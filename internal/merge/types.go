@@ -1,26 +1,23 @@
 package merge
 
-type ChangeType string
+import semdiff "github.com/rgehrsitz/archon/internal/diff/semantic"
 
-const (
-	ChangeRename   ChangeType = "rename"
-	ChangeMove     ChangeType = "move"
-	ChangeProperty ChangeType = "property"
-	ChangeStructure ChangeType = "structure"
-)
-
-type Change struct {
-	Type      ChangeType
-	NodeID    string
-	Field     string
-	OldValue  any
-	NewValue  any
+// Conflict captures a conflicting change on the same logical field
+type Conflict struct {
+	NodeID string
+	Field  string // name|parent|property:<key>|order
+	Ours   any
+	Theirs any
+	Rule   string // reason/category
 }
 
-type Conflict struct {
-	NodeID   string
-	Field    string
-	Ours     any
-	Theirs   any
-	Rule     string
+// Resolution summarizes a 3-way merge attempt (scaffolding, non-applying)
+type Resolution struct {
+	Base      string
+	Ours      string
+	Theirs    string
+	Conflicts []Conflict
+	// Changes that were non-conflicting (can be applied in a future step)
+	OursOnly   []semdiff.Change
+	TheirsOnly []semdiff.Change
 }

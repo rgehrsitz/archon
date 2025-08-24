@@ -26,7 +26,7 @@ func NewManager(projectPath string) (*Manager, error) {
 	config := git.RepositoryConfig{
 		Path: projectPath,
 	}
-	
+
 	repo, err := git.NewRepository(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create repository: %w", err)
@@ -170,7 +170,7 @@ func (m *Manager) List(ctx context.Context) ([]Snapshot, error) {
 // Get retrieves a specific snapshot by name
 func (m *Manager) Get(ctx context.Context, name string) (*Snapshot, error) {
 	tagName := m.formatTagName(name)
-	
+
 	tags, env := m.repo.ListTags(ctx)
 	if env.Code != "" {
 		return nil, fmt.Errorf("failed to list tags: %s - %s", env.Code, env.Message)
@@ -235,7 +235,7 @@ func (m *Manager) Delete(ctx context.Context, name string) error {
 
 	// Note: We don't delete the Git tag here as it should remain immutable
 	// This is a design decision to preserve history even when snapshots are "deleted"
-	
+
 	logging.Log().Info().
 		Str("snapshot_name", name).
 		Msg("Snapshot deleted (tag preserved for history)")
@@ -252,33 +252,33 @@ func (m *Manager) validateCreateRequest(req CreateRequest) error {
 	if req.Message == "" {
 		return fmt.Errorf("commit message is required")
 	}
-	
+
 	// Validate name format (alphanumeric, dash, underscore)
 	if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(req.Name) {
 		return fmt.Errorf("snapshot name must contain only alphanumeric characters, dashes, and underscores")
 	}
-	
+
 	if len(req.Name) > 50 {
 		return fmt.Errorf("snapshot name must be 50 characters or less")
 	}
-	
+
 	return nil
 }
 
 func (m *Manager) snapshotExists(ctx context.Context, name string) (bool, error) {
 	tagName := m.formatTagName(name)
-	
+
 	tags, env := m.repo.ListTags(ctx)
 	if env.Code != "" {
 		return false, fmt.Errorf("failed to list tags: %s - %s", env.Code, env.Message)
 	}
-	
+
 	for _, tag := range tags {
 		if tag.Name == tagName {
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }
 
@@ -297,29 +297,29 @@ func (m *Manager) getMetadataPath(name string) string {
 
 func (m *Manager) saveSnapshotMetadata(snapshot *Snapshot) error {
 	metadataPath := m.getMetadataPath(snapshot.Name)
-	
+
 	// Ensure directory exists
 	if err := os.MkdirAll(filepath.Dir(metadataPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create snapshots directory: %w", err)
 	}
-	
+
 	// Save metadata as JSON
 	data, err := json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal snapshot metadata: %w", err)
 	}
-	
+
 	if err := os.WriteFile(metadataPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write snapshot metadata: %w", err)
 	}
-	
+
 	return nil
 }
 
-func (m *Manager) loadSnapshot(ctx context.Context, tag git.Tag) (*Snapshot, error) {
+func (m *Manager) loadSnapshot(_ context.Context, tag git.Tag) (*Snapshot, error) {
 	name := m.parseTagName(tag.Name)
 	metadataPath := m.getMetadataPath(name)
-	
+
 	// Try to load from metadata file first
 	if data, err := os.ReadFile(metadataPath); err == nil {
 		var snapshot Snapshot
@@ -327,7 +327,7 @@ func (m *Manager) loadSnapshot(ctx context.Context, tag git.Tag) (*Snapshot, err
 			return &snapshot, nil
 		}
 	}
-	
+
 	// Fall back to tag information only
 	snapshot := &Snapshot{
 		Name:      name,
@@ -335,6 +335,6 @@ func (m *Manager) loadSnapshot(ctx context.Context, tag git.Tag) (*Snapshot, err
 		Message:   tag.Message,
 		CreatedAt: tag.Date,
 	}
-	
+
 	return snapshot, nil
 }

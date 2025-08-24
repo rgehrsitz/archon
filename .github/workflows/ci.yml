@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Vet
+        env:
+          ARCHON_DISABLE_INDEX: "1"
+        run: go vet ./...
+
+      - name: Build CLI
+        env:
+          ARCHON_DISABLE_INDEX: "1"
+        run: go build ./cmd/archon
+
+      - name: Test
+        env:
+          ARCHON_DISABLE_INDEX: "1"
+        run: go test ./... -count=1 -v
+
+      - name: Staticcheck
+        env:
+          ARCHON_DISABLE_INDEX: "1"
+        run: $(go env GOPATH)/bin/staticcheck ./...
