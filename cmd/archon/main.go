@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -709,7 +710,7 @@ func runAttachmentVerify(attachStore *store.AttachmentStore, args []string) erro
 	return nil
 }
 
-func runAttachmentGC(_ *store.AttachmentStore, args []string) error {
+func runAttachmentGC(attachStore *store.AttachmentStore, args []string) error {
 	// Subcommand flags
 	fs := flag.NewFlagSet("attachment gc", flag.ContinueOnError)
 	dryRun := fs.Bool("dry-run", false, "Show what would be deleted without actually deleting")
@@ -718,18 +719,83 @@ func runAttachmentGC(_ *store.AttachmentStore, args []string) error {
 		return err
 	}
 	
-	// TODO: This is a placeholder implementation. The real implementation would:
-	// 1. Scan all nodes to find referenced attachment hashes
-	// 2. Compare with stored attachments
-	// 3. Delete unreferenced attachments
-	
 	if *dryRun {
-		fmt.Println("Garbage collection (dry-run): not yet implemented")
-		fmt.Println("This would scan all nodes and remove unreferenced attachments")
-	} else {
-		fmt.Println("Garbage collection: not yet implemented")
-		fmt.Println("Use --dry-run to preview what would be deleted")
+		// For dry run, we need to simulate the process
+		return runAttachmentGCDryRun(attachStore)
 	}
 	
-	return fmt.Errorf("garbage collection not yet implemented")
+	// Real garbage collection - scan project and delete unreferenced attachments
+	deleted, err := attachStore.GarbageCollectProject(attachStore.GetBasePath())
+	if err != nil {
+		return fmt.Errorf("garbage collection failed: %w", err)
+	}
+	
+	if deleted == 0 {
+		fmt.Println("No unreferenced attachments found")
+	} else {
+		fmt.Printf("Deleted %d unreferenced attachment(s)\n", deleted)
+	}
+	
+	return nil
+}
+
+func runAttachmentGCDryRun(attachStore *store.AttachmentStore) error {
+	// Get all stored attachments
+	allAttachments, err := attachStore.List()
+	if err != nil {
+		return fmt.Errorf("failed to list stored attachments: %w", err)
+	}
+	
+	// Create a loader to scan all project nodes
+	loader := store.NewLoader(attachStore.GetBasePath())
+	nodeFiles, err := loader.ListNodeFiles()
+	if err != nil {
+		return fmt.Errorf("failed to list project nodes: %w", err)
+	}
+	
+	// Collect all referenced attachment hashes
+	referenced := make(map[string]bool)
+	for _, nodeFile := range nodeFiles {
+		nodeID := strings.TrimSuffix(filepath.Base(nodeFile), ".json")
+		node, err := loader.LoadNode(nodeID)
+		if err != nil {
+			continue
+		}
+		
+		hashes := attachStore.GetReferencedHashes(node)
+		for _, hash := range hashes {
+			referenced[hash] = true
+		}
+	}
+	
+	// Find unreferenced attachments
+	var unreferenced []*store.AttachmentInfo
+	for _, attachment := range allAttachments {
+		if !referenced[attachment.Hash] {
+			unreferenced = append(unreferenced, attachment)
+		}
+	}
+	
+	fmt.Printf("Garbage collection (dry-run) - found %d total attachment(s)\n", len(allAttachments))
+	fmt.Printf("Referenced attachments: %d\n", len(referenced))
+	fmt.Printf("Unreferenced attachments: %d\n", len(unreferenced))
+	
+	if len(unreferenced) > 0 {
+		fmt.Println("\nWould delete the following unreferenced attachments:")
+		fmt.Printf("%-64s %-10s %s\n", "HASH", "SIZE", "STORED")
+		fmt.Println(strings.Repeat("-", 85))
+		
+		var totalSize int64
+		for _, att := range unreferenced {
+			fmt.Printf("%-64s %-10d %s\n", att.Hash, att.Size, att.StoredAt.Format("2006-01-02 15:04"))
+			totalSize += att.Size
+		}
+		
+		fmt.Printf("\nTotal size to be freed: %d bytes\n", totalSize)
+		fmt.Println("Run without --dry-run to actually delete these attachments")
+	} else {
+		fmt.Println("No unreferenced attachments to delete")
+	}
+	
+	return nil
 }

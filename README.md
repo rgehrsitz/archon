@@ -121,7 +121,7 @@ Subcommands:
 - `get [--output file] <hash>` retrieves an attachment by hash. Outputs to stdout by default.
 - `remove [--force] <hash>` deletes an attachment after confirmation (use `--force` to skip prompt).
 - `verify [--all] [hash...]` verifies attachment integrity by recomputing SHA-256 hashes.
-- `gc [--dry-run]` garbage collection for unreferenced attachments (not yet implemented).
+- `gc [--dry-run]` garbage collection for unreferenced attachments. Scans all project nodes and removes orphaned files.
 
 The attachment system features:
 
@@ -158,8 +158,11 @@ archon --project ~/Projects/Example attachment remove a1b2c3d4...
 # Force remove without confirmation
 archon --project ~/Projects/Example attachment remove --force a1b2c3d4...
 
-# Preview garbage collection
+# Preview garbage collection (dry run)
 archon --project ~/Projects/Example attachment gc --dry-run
+
+# Run garbage collection to delete orphaned attachments
+archon --project ~/Projects/Example attachment gc
 ```
 
 ## Project Layout (brief)

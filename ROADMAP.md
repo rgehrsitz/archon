@@ -118,7 +118,7 @@ Currently no active development tasks.
   - [x] CLI commands for attachment operations (add, list, get, remove, verify)
   - [x] Path sharding for efficient file organization
   - [x] Comprehensive test coverage for attachment system
-  - [ ] Garbage collection for unused attachments (placeholder implementation)
+  - [x] Garbage collection for unused attachments with dry-run support
 
 - [ ] **Import Plugin System** - Sandboxed JS/TS workers (ADR-004)
   - Web Worker sandbox environment

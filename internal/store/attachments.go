@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rgehrsitz/archon/internal/errors"
@@ -48,6 +49,11 @@ func (as *AttachmentStore) WithGitRepository(repo git.Repository) *AttachmentSto
 // SetLFSThreshold changes the size threshold for LFS (default 1MB)
 func (as *AttachmentStore) SetLFSThreshold(bytes int64) {
 	as.lfsThreshold = bytes
+}
+
+// GetBasePath returns the base path for the attachment store
+func (as *AttachmentStore) GetBasePath() string {
+	return as.basePath
 }
 
 // AttachmentInfo contains metadata about a stored attachment
@@ -433,12 +439,76 @@ func (as *AttachmentStore) GetReferencedHashes(node *types.Node) []string {
 	return hashes
 }
 
-// GarbageCollect removes unreferenced attachments (placeholder for future implementation)
+// GarbageCollect removes unreferenced attachments
 func (as *AttachmentStore) GarbageCollect(referencedHashes []string) (int, error) {
-	// TODO: Implement garbage collection
-	// 1. Get all stored attachments
-	// 2. Find attachments not in referencedHashes
-	// 3. Delete unreferenced attachments
-	// 4. Return count of deleted files
-	return 0, fmt.Errorf("garbage collection not yet implemented")
+	// Get all stored attachments
+	allAttachments, err := as.List()
+	if err != nil {
+		return 0, fmt.Errorf("failed to list stored attachments: %w", err)
+	}
+
+	// Create a set of referenced hashes for quick lookup
+	referenced := make(map[string]bool)
+	for _, hash := range referencedHashes {
+		referenced[hash] = true
+	}
+
+	// Find unreferenced attachments and delete them
+	var deleted int
+	for _, attachment := range allAttachments {
+		if !referenced[attachment.Hash] {
+			if err := as.Delete(attachment.Hash); err != nil {
+				// Log the error but continue with other deletions
+				// TODO: Add proper logging when available
+				continue
+			}
+			deleted++
+		}
+	}
+
+	return deleted, nil
+}
+
+// GarbageCollectProject scans all nodes in a project and removes unreferenced attachments
+func (as *AttachmentStore) GarbageCollectProject(projectPath string) (int, error) {
+	// Create a loader to scan all project nodes
+	loader := NewLoader(projectPath)
+
+	// Get all node files
+	nodeFiles, err := loader.ListNodeFiles()
+	if err != nil {
+		return 0, fmt.Errorf("failed to list project nodes: %w", err)
+	}
+
+	// Collect all referenced attachment hashes
+	var allReferencedHashes []string
+	for _, nodeFile := range nodeFiles {
+		// Extract node ID from filename
+		nodeID := strings.TrimSuffix(filepath.Base(nodeFile), ".json")
+		
+		// Load the node
+		node, err := loader.LoadNode(nodeID)
+		if err != nil {
+			// Skip nodes that can't be loaded (they might be corrupted)
+			continue
+		}
+
+		// Get referenced hashes from this node
+		hashes := as.GetReferencedHashes(node)
+		allReferencedHashes = append(allReferencedHashes, hashes...)
+	}
+
+	// Remove duplicates from referenced hashes
+	uniqueHashes := make(map[string]bool)
+	for _, hash := range allReferencedHashes {
+		uniqueHashes[hash] = true
+	}
+	
+	var referencedHashes []string
+	for hash := range uniqueHashes {
+		referencedHashes = append(referencedHashes, hash)
+	}
+
+	// Perform garbage collection
+	return as.GarbageCollect(referencedHashes)
 }
