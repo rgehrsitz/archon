@@ -17,6 +17,7 @@ type App struct {
 	gitService       *api.GitService
 	snapshotService  *api.SnapshotService
 	diffService      *api.DiffService
+	pluginService    *api.PluginService
 }
 
 // NewApp creates a new App application struct
@@ -28,6 +29,7 @@ func NewApp() *App {
 	gitService := api.NewGitService(projectService)
 	snapshotService := api.NewSnapshotService(projectService)
 	diffService := api.NewDiffService(projectService)
+	pluginService := api.NewPluginService(*logging.GetLogger(), projectService)
 
 	return &App{
 		projectService:   projectService,
@@ -37,6 +39,7 @@ func NewApp() *App {
 		gitService:       gitService,
 		snapshotService:  snapshotService,
 		diffService:      diffService,
+		pluginService:    pluginService,
 	}
 }
 
@@ -85,4 +88,9 @@ func (a *App) GetSnapshotService() *api.SnapshotService {
 // GetDiffService returns the diff service for Wails binding
 func (a *App) GetDiffService() *api.DiffService {
 	return a.diffService
+}
+
+// GetPluginService returns the plugin service for Wails binding
+func (a *App) GetPluginService() *api.PluginService {
+	return a.pluginService
 }

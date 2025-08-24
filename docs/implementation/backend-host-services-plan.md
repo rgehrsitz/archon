@@ -3,6 +3,18 @@
 ## Overview
 Implement the Go backend services that support the frontend plugin system, bridging TypeScript plugin interfaces to actual Archon functionality.
 
+## Status (2025-08-24)
+
+- __Just completed__: Fixed backend compilation for plugin system
+  - Standardized zerolog usage across plugin backend (`logger.Info().Msg(...)`)
+  - Corrected `ProjectService.GetCurrentProject()` usage and plugin dir path in `internal/api/plugin_service.go`
+  - Replaced nonexistent `logging.Global()` with `*logging.GetLogger()` in `app.go`
+  - Aligned index manager API usage in host/manager with `internal/index/index.go`
+- __In progress__: ADR-013 alignment for host services
+  - Wails bindings in `internal/api/plugin_service.go`
+  - Permission enforcement in `internal/plugins/permissions.go`
+  - Secrets and network proxy scaffolding
+
 ## Phase 2.1: Core Backend Services
 
 ### 1. Plugin Host Service (Go)

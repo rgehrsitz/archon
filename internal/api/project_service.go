@@ -5,8 +5,10 @@ import (
 	"path/filepath"
 
 	"github.com/rgehrsitz/archon/internal/errors"
-	"github.com/rgehrsitz/archon/internal/migrate"
+	"github.com/rgehrsitz/archon/internal/git"
+	"github.com/rgehrsitz/archon/internal/index"
 	"github.com/rgehrsitz/archon/internal/logging"
+	"github.com/rgehrsitz/archon/internal/migrate"
 	"github.com/rgehrsitz/archon/internal/store"
 	"github.com/rgehrsitz/archon/internal/types"
 )
@@ -224,4 +226,40 @@ func (s *ProjectService) IsProjectOpen(ctx context.Context) bool {
 // Helper method to get current project store (for internal use by other services)
 func (s *ProjectService) GetCurrentProject() (*store.ProjectStore, string) {
 	return s.currentProject, s.currentPath
+}
+
+// getNodeStore returns the node store for the current project (for plugin service)
+func (s *ProjectService) getNodeStore() (*store.NodeStore, errors.Envelope) {
+	if s.currentProject == nil {
+		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
+	}
+	
+	return store.NewNodeStore(s.currentPath, s.currentProject.IndexManager), errors.Envelope{}
+}
+
+// getGitRepository returns the git repository for the current project (for plugin service)
+func (s *ProjectService) getGitRepository() (git.Repository, errors.Envelope) {
+	if s.currentProject == nil {
+		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
+	}
+	
+	config := git.RepositoryConfig{
+		Path: s.currentPath,
+	}
+	
+	repo, err := git.NewRepository(config)
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrGitFailure, "Failed to open repository", err)
+	}
+	
+	return repo, errors.Envelope{}
+}
+
+// getIndexManager returns the index manager for the current project (for plugin service)
+func (s *ProjectService) getIndexManager() (*index.Manager, errors.Envelope) {
+	if s.currentProject == nil {
+		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
+	}
+	
+	return s.currentProject.IndexManager, errors.Envelope{}
 }

@@ -20,6 +20,10 @@ const (
 	ErrCircularReference  = "CIRCULAR_REFERENCE"
 	ErrNameRequired       = "NAME_REQUIRED"
 	ErrInvalidUUID        = "INVALID_UUID"
+	ErrValidationFailure  = "VALIDATION_FAILURE"
+	
+	// Authorization errors
+	ErrUnauthorized       = "UNAUTHORIZED"
 	
 	// Git errors
 	ErrGitFailure         = "GIT_FAILURE"

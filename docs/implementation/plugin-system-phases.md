@@ -6,6 +6,8 @@ This document outlines the phased implementation approach for the Comprehensive 
 
 The plugin system represents a major platform feature with 10 plugin types, sandboxed execution, permission management, and extensive host services. To manage complexity and deliver value incrementally, we'll implement in 3 phases.
 
+> Status (2025-08-24): Frontend runtime, manifests, permissions, and discovery are implemented under `frontend/src/lib/plugins/`. Backend host services integration in Go is now the immediate next step (ADR-013 alignment), followed by UI integration and advanced types.
+
 ## Phase 1: Core Infrastructure (Foundation)
 
 **Goal**: Establish the runtime, security, and basic plugin lifecycle.

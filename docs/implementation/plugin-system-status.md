@@ -1,77 +1,81 @@
 # Archon Plugin System - Implementation Status
 
-*Updated: December 2024*
+*Updated: 2025-08-24*
 
 ## Overview
 
-The Archon Plugin System has been successfully implemented according to ADR-013, providing a comprehensive extensibility platform that goes far beyond simple data imports. The system supports 10 plugin types with sandboxed execution, fine-grained permissions, and full TypeScript support.
+The frontend plugin runtime (per ADR-013) is implemented: sandboxed execution, fine-grained permissions, manifest validation, and TypeScript APIs exist in the `frontend/src/lib/plugins/` runtime. Backend host services integration in Go is now underway. As of today, backend compilation issues were resolved and ADR-013 alignment is the current focus.
 
-## ✅ Phase 1: Core Runtime (COMPLETED)
+### 2025-08-24 Update (Backend)
+- Standardized zerolog usage across plugin backend (`logger.Info().Msg(...)`).
+- Corrected `ProjectService.GetCurrentProject()` usage and plugin directory handling in `internal/api/plugin_service.go`.
+- Replaced nonexistent `logging.Global()` with `*logging.GetLogger()` in `app.go`.
+- Verified index manager API usage matches `internal/index/index.go`.
+
+## ✅ Phase 1: Core Runtime (Frontend COMPLETE)
 
 ### 1.1 TypeScript API Definitions
-**Status: COMPLETE** ✅
-- **File**: `src/lib/plugins/api.ts` 
+**Status: COMPLETE (frontend)** ✅
+- **File**: `frontend/src/lib/plugins/api.ts` 
 - Complete type-safe interfaces for all 10 plugin types
 - Host services interface with 15+ methods
 - Permission system with 6+ permission types including dynamic secrets
 - Comprehensive mutation system for repository operations
 
 ### 1.2 Web Worker Sandbox Environment  
-**Status: COMPLETE** ✅
-- **File**: `src/lib/plugins/runtime/sandbox.ts`
+**Status: COMPLETE (frontend)** ✅
+- **File**: `frontend/src/lib/plugins/runtime/sandbox.ts`
 - Secure plugin execution in isolated Web Workers
 - Resource limits (60s timeout, 256MB memory)
 - Structured error handling and communication protocol
 - Plugin lifecycle management (initialize, execute, terminate)
 
 ### 1.3 Plugin Manifest System
-**Status: COMPLETE** ✅
-- **File**: `src/lib/plugins/manifest.ts`
+**Status: COMPLETE (frontend)** ✅
+- **File**: `frontend/src/lib/plugins/manifest.ts`
 - Comprehensive validation with security checks
 - Version compatibility and integrity verification
 - Support for all 10 plugin types with strict ID validation
 - URL validation and length limits for security
 
 ### 1.4 Permission System
-**Status: COMPLETE** ✅
-- **File**: `src/lib/plugins/runtime/permissions.ts`
+**Status: COMPLETE (frontend)** ✅
+- **File**: `frontend/src/lib/plugins/runtime/permissions.ts`
 - Fine-grained permission management with pattern matching
 - Temporal permissions with automatic expiry
 - Risk categorization (LOW/MEDIUM/HIGH)
 - User consent workflow with detailed permission descriptions
 
 ### 1.5 UI Components
-**Status: COMPLETE** ✅
-- **File**: `src/lib/components/ui/permission-consent-dialog.svelte`
+**Status: COMPLETE (frontend)** ✅
+- **File**: `frontend/src/lib/plugins/runtime/ui-permission-manager.ts`
 - Permission consent dialog with risk indicators
 - Duration selection for temporary grants
 - Visual risk communication and detailed descriptions
 
 ### 1.6 Host Services Integration
-**Status: COMPLETE** ✅
-- **File**: `src/lib/plugins/runtime/host.ts`
-- Bridge to Wails backend services
+**Status: PARTIAL (frontend bridge present)** ✅
+- **File**: `frontend/src/lib/plugins/runtime/host-services.ts`
+- Bridge to Wails backend services (Go integration in progress)
 - Permission-gated access to all host operations
 - Repository access, attachments, network, UI, secrets management
 
 ### 1.7 Plugin Discovery and Installation
-**Status: COMPLETE** ✅
-- **File**: `src/lib/plugins/runtime/manager.ts`
+**Status: COMPLETE (frontend)** ✅
+- **File**: `frontend/src/lib/plugins/runtime/plugin-manager.ts`
 - Local plugin discovery and loading
 - Installation metadata tracking
 - Plugin lifecycle management (enable/disable)
 
 ### 1.8 Basic Plugin Types Implementation
-**Status: COMPLETE** ✅
-- **Example Plugins**:
-  - `src/lib/plugins/examples/csv-importer.ts` - Complete CSV import plugin
-  - Basic implementations for all plugin type interfaces
+**Status: PARTIAL** ⏳
+- Example plugins to be added post backend integration
 
-## ✅ Testing Infrastructure (COMPLETED)
+## ✅ Testing Infrastructure (Frontend)
 
 ### Comprehensive Test Suite
-**Status: COMPLETE** ✅ - **130 tests passing**
-- **Vitest Framework**: Complete migration from homegrown testing
+**Status: AVAILABLE**
+- **Vitest Framework**: Frontend testing available
 - **Coverage**: High thresholds (75-95%) with critical path focus
 - **Test Files**:
   - `permissions.test.ts` - 23 tests for permission system
@@ -83,7 +87,7 @@ The Archon Plugin System has been successfully implemented according to ADR-013,
 - Both Go and TypeScript tests visible in Test Explorer
 - Seamless test running alongside existing Go test infrastructure
 
-## 🎯 Phase 2: UI Integration & Advanced Types (NEXT)
+## 🎯 Phase 2: Backend Integration, UI & Advanced Types (NEXT)
 
 ### Priority Assessment
 
@@ -159,7 +163,7 @@ Advanced Features ❌
 
 ## 🚀 Recommended Next Steps
 
-1. **Backend Host Services** - Implement the Go side of plugin host services
+1. **Backend Host Services** - Implement the Go side of plugin host services (ADR-013 alignment)
 2. **Plugin Manager UI** - Create the user interface for plugin management  
 3. **Real-world Testing** - Build a practical plugin to validate the system
 4. **Documentation** - User and developer guides for the plugin system

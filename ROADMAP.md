@@ -49,7 +49,18 @@ This document tracks progress against the complete Archon vision as defined in t
 
 ## 🔄 In Progress
 
-Currently no active development tasks.
+- __ADR-013 Backend Host Services alignment__
+  - Finalize plugin manifest + host API per ADR-013
+  - Wire Wails bindings in `internal/api/plugin_service.go`
+  - Implement permission enforcement in `internal/plugins/permissions.go`
+  - Plan secrets and network proxy services scaffolding
+
+__Just completed (2025-08-24)__
+- Fixed backend compilation for plugin system
+  - Migrated zerolog calls to chained form across plugin backend (`logger.Info().Msg(...)`)
+  - Corrected `ProjectService.GetCurrentProject()` usage and plugin dir path in `internal/api/plugin_service.go`
+  - Replaced nonexistent `logging.Global()` with `*logging.GetLogger()` in `app.go`
+  - Aligned index manager API usage in host/manager with `internal/index/index.go`
 
 ## 📋 Pending (Prioritized Roadmap)
 
@@ -121,6 +132,8 @@ Currently no active development tasks.
   - [x] Garbage collection for unused attachments with dry-run support
 
 - [ ] **Comprehensive Plugin System** - Sandboxed extensibility platform (ADR-004, ADR-013)
+  - Status (2025-08-24): Backend plugin compilation fixes completed; ADR-013 Backend Host Services alignment in progress (manifest + host API finalization, Wails bindings, permission enforcement; secrets and network proxy scaffolding). See `docs/implementation/plugin-system-status.md` and `docs/implementation/backend-host-services-plan.md`.
+  - Near-term milestones: implement read-only host methods (GetNode, ListChildren, SearchNodes), write paths (Apply, Commit, Snapshot), attachments/index write, backend permission checks, minimal Plugin Manager UI, and integration/E2E tests.
   - [ ] Core plugin runtime with Web Worker sandbox environment
   - [ ] TypeScript API definitions and host service interfaces
   - [ ] Permission system with least-privilege security model
@@ -206,11 +219,16 @@ Currently no active development tasks.
 
 ## 🎯 Current Focus
 
-**Recommended Next Steps:** Content system complete, move to Comprehensive Plugin System
+**Next Steps (post-compile fixes):** Execute ADR-013 backend host services and minimal UI to validate end-to-end
 
-1. **Comprehensive Plugin System** - Implement sandboxed extensibility platform with 10 plugin types per ADR-013
-2. Consider Snapshot System UI integration - Linear history presentation and snapshot comparison UI  
-3. Build & Release pipeline for distributing the CLI tools
+1. **ADR-013 Backend Host Services**
+   - Manifest + Host API alignment, Wails bindings, permission enforcement
+   - Secrets store and network proxy scaffolding
+   - E2E with reference CSV Importer
+2. **Snapshot System UI integration**
+   - Linear history view and comparison UI
+3. **Build & Release pipeline**
+   - Distribute CLI (and later desktop) artifacts
 
 ## 📊 Progress Summary
 

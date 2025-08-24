@@ -2,7 +2,12 @@
 
 **Date:** August 24, 2025  
 **Phase:** Phase 1 - Core Runtime Foundation  
-**Status:** ✅ **COMPLETED**
+**Status:** ✅ **COMPLETED (Frontend Runtime)** | 🛠️ **Backend Host Services: In Progress**
+
+> Status Update (2025-08-24)
+> - Frontend runtime (sandbox, permissions, manifest, host-services bridge) is implemented under `frontend/src/lib/plugins/`.
+> - Backend host services in Go are being aligned with ADR-013 (compilation fixed today; bindings and permissions next).
+> - Reference example plugins will be finalized after backend host services are wired end-to-end.
 
 ## Overview
 
