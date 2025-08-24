@@ -72,7 +72,7 @@ func convertCLIDiff(d *cli.Diff) *Diff {
 	if d == nil {
 		return nil
 	}
-	
+
 	files := make([]FileDiff, len(d.Files))
 	for i, f := range d.Files {
 		files[i] = FileDiff{
@@ -83,11 +83,16 @@ func convertCLIDiff(d *cli.Diff) *Diff {
 			Deletions: f.Deletions,
 		}
 	}
-	
+
 	return &Diff{
 		From:  d.From,
 		To:    d.To,
 		Files: files,
+		Summary: DiffSummary{
+			FilesChanged: d.Summary.FilesChanged,
+			Additions:    d.Summary.Additions,
+			Deletions:    d.Summary.Deletions,
+		},
 	}
 }
 
@@ -151,7 +156,7 @@ func convertGoGitDiff(d *gogit.Diff) *Diff {
 	if d == nil {
 		return nil
 	}
-	
+
 	files := make([]FileDiff, len(d.Files))
 	for i, f := range d.Files {
 		files[i] = FileDiff{
@@ -162,10 +167,15 @@ func convertGoGitDiff(d *gogit.Diff) *Diff {
 			Deletions: f.Deletions,
 		}
 	}
-	
+
 	return &Diff{
 		From:  d.From,
 		To:    d.To,
 		Files: files,
+		Summary: DiffSummary{
+			FilesChanged: d.Summary.FilesChanged,
+			Additions:    d.Summary.Additions,
+			Deletions:    d.Summary.Deletions,
+		},
 	}
 }

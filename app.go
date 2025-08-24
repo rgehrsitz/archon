@@ -16,6 +16,7 @@ type App struct {
 	migrationService *api.MigrationService
 	gitService       *api.GitService
 	snapshotService  *api.SnapshotService
+	diffService      *api.DiffService
 }
 
 // NewApp creates a new App application struct
@@ -26,7 +27,8 @@ func NewApp() *App {
 	migrationService := api.NewMigrationService()
 	gitService := api.NewGitService(projectService)
 	snapshotService := api.NewSnapshotService(projectService)
-	
+	diffService := api.NewDiffService(projectService)
+
 	return &App{
 		projectService:   projectService,
 		nodeService:      nodeService,
@@ -34,6 +36,7 @@ func NewApp() *App {
 		migrationService: migrationService,
 		gitService:       gitService,
 		snapshotService:  snapshotService,
+		diffService:      diffService,
 	}
 }
 
@@ -45,8 +48,8 @@ func (a *App) startup(ctx context.Context) {
 
 // shutdown is called when the app is quitting.
 func (a *App) shutdown(ctx context.Context) {
-    // Graceful logging shutdown
-    logging.Shutdown()
+	// Graceful logging shutdown
+	logging.Shutdown()
 }
 
 // GetProjectService returns the project service for Wails binding
@@ -77,4 +80,9 @@ func (a *App) GetGitService() *api.GitService {
 // GetSnapshotService returns the snapshot service for Wails binding
 func (a *App) GetSnapshotService() *api.SnapshotService {
 	return a.snapshotService
+}
+
+// GetDiffService returns the diff service for Wails binding
+func (a *App) GetDiffService() *api.DiffService {
+	return a.diffService
 }

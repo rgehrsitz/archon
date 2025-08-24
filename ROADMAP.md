@@ -82,6 +82,7 @@ Currently no active development tasks.
   - Remote repository configuration and sync
   - Wails service integration with project-aware operations
   - Tag listing via go-git; tag creation via CLI
+  - Basic CLI diff command with `--summary-only` and `--json` flags
 
 - [ ] **Snapshot System** - Commit + immutable tag pairs
   - [x] Create snapshots (commit + tag)

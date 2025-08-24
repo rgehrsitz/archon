@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	godiff "github.com/go-git/go-git/v5/plumbing/format/diff"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/rgehrsitz/archon/internal/errors"
 )
 
@@ -209,12 +211,103 @@ func (r *Repository) ListTags(ctx context.Context) ([]Tag, errors.Envelope) {
 }
 
 func (r *Repository) GetDiff(ctx context.Context, from, to string) (*Diff, errors.Envelope) {
-	// Stub implementation - will be expanded
-	return &Diff{
+	if r.repo == nil {
+		return &Diff{From: from, To: to, Files: []FileDiff{}}, errors.Envelope{}
+	}
+
+	// Resolve refs to commits
+	fromCommit, err := r.resolveToCommit(from)
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrNotFound, "Failed to resolve 'from' ref", err)
+	}
+	toCommit, err := r.resolveToCommit(to)
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrNotFound, "Failed to resolve 'to' ref", err)
+	}
+
+	fromTree, err := fromCommit.Tree()
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to get 'from' tree", err)
+	}
+	toTree, err := toCommit.Tree()
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to get 'to' tree", err)
+	}
+
+	patch, err := fromTree.Patch(toTree)
+	if err != nil {
+		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to compute patch", err)
+	}
+
+	files := make([]FileDiff, 0, len(patch.FilePatches()))
+	totalAdds := 0
+	totalDels := 0
+
+	for _, fp := range patch.FilePatches() {
+		var fromPath, toPath string
+		fObj, tObj := fp.Files()
+		if fObj != nil {
+			fromPath = fObj.Path()
+		}
+		if tObj != nil {
+			toPath = tObj.Path()
+		}
+
+		// Determine status
+		var status FileStatus
+		switch {
+		case fObj == nil && tObj != nil:
+			status = FileStatusAdded
+		case fObj != nil && tObj == nil:
+			status = FileStatusDeleted
+		default:
+			status = FileStatusModified
+		}
+		// Heuristic rename detection
+		oldPath := ""
+		if fromPath != "" && toPath != "" && fromPath != toPath {
+			oldPath = fromPath
+			status = FileStatusRenamed
+		}
+
+		// Count additions/deletions from chunks
+		adds := 0
+		dels := 0
+		for _, ch := range fp.Chunks() {
+			switch ch.Type() {
+			case godiff.Add:
+				adds += strings.Count(ch.Content(), "\n")
+			case godiff.Delete:
+				dels += strings.Count(ch.Content(), "\n")
+			}
+		}
+		totalAdds += adds
+		totalDels += dels
+
+		path := toPath
+		if status == FileStatusDeleted {
+			path = fromPath
+		}
+		files = append(files, FileDiff{
+			Path:      path,
+			OldPath:   oldPath,
+			Status:    status,
+			Additions: adds,
+			Deletions: dels,
+		})
+	}
+
+	diff := &Diff{
 		From:  from,
 		To:    to,
-		Files: []FileDiff{},
-	}, errors.Envelope{}
+		Files: files,
+		Summary: DiffSummary{
+			FilesChanged: len(files),
+			Additions:    totalAdds,
+			Deletions:    totalDels,
+		},
+	}
+	return diff, errors.Envelope{}
 }
 
 func (r *Repository) GetRemoteURL(remote string) (string, errors.Envelope) {
@@ -272,9 +365,10 @@ type Tag struct {
 }
 
 type Diff struct {
-	From  string     `json:"from"`
-	To    string     `json:"to"`
-	Files []FileDiff `json:"files"`
+	From    string      `json:"from"`
+	To      string      `json:"to"`
+	Files   []FileDiff  `json:"files"`
+	Summary DiffSummary `json:"summary"`
 }
 
 type FileDiff struct {
@@ -294,3 +388,84 @@ const (
 	FileStatusRenamed  FileStatus = "renamed"
 	FileStatusCopied   FileStatus = "copied"
 )
+
+// DiffSummary mirrors the public git.DiffSummary
+type DiffSummary struct {
+	FilesChanged int `json:"filesChanged"`
+	Additions    int `json:"additions"`
+	Deletions    int `json:"deletions"`
+}
+
+// resolveToCommit attempts to resolve a ref (hash, branch, tag) to a commit
+func (r *Repository) resolveToCommit(ref string) (*object.Commit, error) {
+	if ref == "" {
+		// Default to HEAD
+		h, err := r.repo.Head()
+		if err != nil {
+			return nil, err
+		}
+		return r.repo.CommitObject(h.Hash())
+	}
+
+	// Try generic revision resolution first
+	if hash, err := r.repo.ResolveRevision(plumbing.Revision(ref)); err == nil && hash != nil {
+		if c, err := r.repo.CommitObject(*hash); err == nil {
+			return c, nil
+		}
+		if tagObj, err := r.repo.TagObject(*hash); err == nil && tagObj != nil {
+			// Dereference annotated tag
+			if c, err := r.repo.CommitObject(tagObj.Target); err == nil {
+				return c, nil
+			}
+		}
+	}
+
+	// Try explicit tag name
+	// 1) short tag name
+	if refIter, err := r.repo.Tags(); err == nil && refIter != nil {
+		var found *object.Commit
+		_ = refIter.ForEach(func(tagRef *plumbing.Reference) error {
+			if tagRef.Name().Short() != ref {
+				return nil
+			}
+			// Resolve tag to commit
+			if tagObj, err := r.repo.TagObject(tagRef.Hash()); err == nil && tagObj != nil {
+				if c, err := r.repo.CommitObject(tagObj.Target); err == nil {
+					found = c
+					return nil
+				}
+			}
+			if c, err := r.repo.CommitObject(tagRef.Hash()); err == nil {
+				found = c
+				return nil
+			}
+			return nil
+		})
+		if found != nil {
+			return found, nil
+		}
+	}
+
+	// Try as a full reference name (e.g., refs/tags/<name>)
+	if refName := plumbing.ReferenceName(ref); refName.IsTag() || refName.IsBranch() {
+		if tagRef, err := r.repo.Reference(refName, true); err == nil && tagRef != nil {
+			if c, err := r.repo.CommitObject(tagRef.Hash()); err == nil {
+				return c, nil
+			}
+			if tagObj, err := r.repo.TagObject(tagRef.Hash()); err == nil && tagObj != nil {
+				if c, err := r.repo.CommitObject(tagObj.Target); err == nil {
+					return c, nil
+				}
+			}
+		}
+	}
+
+	// Finally, try treating it as a direct commit hash
+	if h := plumbing.NewHash(ref); !h.IsZero() {
+		if c, err := r.repo.CommitObject(h); err == nil {
+			return c, nil
+		}
+	}
+
+	return nil, errors.New(errors.ErrNotFound, "Unable to resolve ref to commit")
+}

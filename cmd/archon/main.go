@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/rgehrsitz/archon/internal/git"
 	"github.com/rgehrsitz/archon/internal/snapshot"
 )
 
@@ -19,7 +21,8 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Archon CLI (MVP)\n")
 		fmt.Fprintf(os.Stderr, "Usage: archon [--project path] <command> [args]\n")
-		fmt.Fprintf(os.Stderr, "Commands: open | index | snapshot | export (stubs)\n")
+		fmt.Fprintf(os.Stderr, "Commands: open | index | snapshot | diff | export (stubs)\n")
+		fmt.Fprintf(os.Stderr, "\nDiff usage:\n  archon --project <path> diff [--summary-only] [--json] <from> <to>\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -32,6 +35,11 @@ func main() {
 	case "snapshot":
 		if err := runSnapshot(projectPath, flag.Args()[1:]); err != nil {
 			fmt.Fprintln(os.Stderr, "snapshot:", err)
+			os.Exit(1)
+		}
+	case "diff":
+		if err := runDiff(projectPath, flag.Args()[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, "diff:", err)
 			os.Exit(1)
 		}
 	case "open", "index", "export":
@@ -107,4 +115,81 @@ func runSnapshot(projectPath string, args []string) error {
 	default:
 		return fmt.Errorf("unknown snapshot subcommand: %s", sub)
 	}
+}
+
+func runDiff(projectPath string, args []string) error {
+	if projectPath == "" {
+		return fmt.Errorf("--project path is required")
+	}
+	// Subcommand flags
+	fs := flag.NewFlagSet("diff", flag.ContinueOnError)
+	summaryOnly := fs.Bool("summary-only", false, "Print only the summary line (no per-file changes)")
+	jsonOut := fs.Bool("json", false, "Output machine-readable JSON (full diff unless --summary-only is set)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	rem := fs.Args()
+	if len(rem) < 2 {
+		return fmt.Errorf("usage: archon --project <path> diff [--summary-only] [--json] <from> <to>")
+	}
+	from, to := rem[0], rem[1]
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	repo, err := git.NewRepository(git.RepositoryConfig{Path: projectPath})
+	if err != nil {
+		return fmt.Errorf("failed to open repository: %w", err)
+	}
+	defer repo.Close()
+
+	d, env := repo.GetDiff(ctx, from, to)
+	if env.Code != "" {
+		return fmt.Errorf("failed to compute diff: %s", env.Message)
+	}
+
+	// JSON output mode
+	if *jsonOut {
+		if *summaryOnly {
+			out := struct {
+				From    string          `json:"from"`
+				To      string          `json:"to"`
+				Summary git.DiffSummary `json:"summary"`
+			}{From: d.From, To: d.To, Summary: d.Summary}
+			return json.NewEncoder(os.Stdout).Encode(out)
+		}
+		return json.NewEncoder(os.Stdout).Encode(d)
+	}
+
+	// Text output mode
+	// Summary
+	fmt.Printf("%s..%s: %d files changed, %d insertions(+), %d deletions(-)\n",
+		d.From, d.To, d.Summary.FilesChanged, d.Summary.Additions, d.Summary.Deletions)
+	if *summaryOnly {
+		return nil
+	}
+
+	// Per-file details
+	for _, f := range d.Files {
+		var status string
+		switch f.Status {
+		case git.FileStatusAdded:
+			status = "A"
+		case git.FileStatusModified:
+			status = "M"
+		case git.FileStatusDeleted:
+			status = "D"
+		case git.FileStatusRenamed:
+			status = "R"
+		default:
+			status = string(f.Status)
+		}
+
+		path := f.Path
+		if f.Status == git.FileStatusRenamed && f.OldPath != "" {
+			path = fmt.Sprintf("%s -> %s", f.OldPath, f.Path)
+		}
+		fmt.Printf("%s\t%s\t+%d -%d\n", status, path, f.Additions, f.Deletions)
+	}
+	return nil
 }

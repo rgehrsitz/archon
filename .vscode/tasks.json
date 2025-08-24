@@ -91,6 +91,123 @@
 				"$go"
 			],
 			"group": "build"
+		},
+		{
+			"label": "build+test after diff MVP wiring",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go vet ./... && go build ./cmd/archon && go test ./... -count=1"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "staticcheck after changes",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"staticcheck ./..."
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "run only git package tests (fresh)",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go test ./internal/git -count=1 -v"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "re-run git package tests",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go test ./internal/git -count=1 -v"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "run git diff tests only",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go test ./internal/git -run TestGetDiff -count=1 -v"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "re-run only diff tests",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go test ./internal/git -run TestGetDiff -count=1 -v"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "run git diff tests with summaries",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go test ./internal/git -run TestGetDiff -count=1 -v"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build and test after adding diff CLI",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go vet ./... && go build ./cmd/archon && go test ./... -count=1"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build and test after docs + flags",
+			"type": "shell",
+			"command": "bash",
+			"args": [
+				"-lc",
+				"go vet ./... && go build ./cmd/archon && go test ./... -count=1"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build"
 		}
 	]
 }

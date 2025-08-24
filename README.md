@@ -33,6 +33,32 @@ Build:
 wails build
 ```
 
+### CLI: Diff command
+
+Compare two refs (commits or tags) and print a summary and per-file changes:
+
+```bash
+archon --project /path/to/project diff [--summary-only] [--json] <from> <to>
+```
+
+Flags:
+
+- `--summary-only` prints just the one-line summary.
+- `--json` emits machine-readable JSON (full diff by default; combine with `--summary-only` to emit only the summary object).
+
+Examples:
+
+```bash
+# Human-readable summary + file list
+archon --project ~/Projects/Example diff HEAD~1 HEAD
+
+# Summary only
+archon --project ~/Projects/Example diff --summary-only v1.0.0 v1.1.0
+
+# JSON output
+archon --project ~/Projects/Example diff --json snapshot-initial-state snapshot-updated-state
+```
+
 ## Project Layout (brief)
 
 - `internal/` — core packages: `store/`, `index/sqlite/`, `git/`, `merge/`, `migrate/`, `api/`, `types/`.

@@ -175,6 +175,12 @@ func (r *Repository) Add(ctx context.Context, paths []string) errors.Envelope {
 	if len(paths) == 0 {
 		return errors.New(errors.ErrInvalidInput, "No paths specified")
 	}
+	// Support staging deletions with special patterns
+	if len(paths) == 1 && (paths[0] == "-A" || paths[0] == "--all" || paths[0] == ".") {
+		args := []string{"add", "-A"}
+		_, err := r.exec(ctx, args...)
+		return r.wrapError(err, errors.ErrStorageFailure, "Failed to add files")
+	}
 	args := append([]string{"add"}, paths...)
 	_, err := r.exec(ctx, args...)
 	return r.wrapError(err, errors.ErrStorageFailure, "Failed to add files")
@@ -186,9 +192,11 @@ func (r *Repository) Commit(ctx context.Context, message string, author *Author)
 	}
 
 	// Set author if provided
-	args := []string{"commit", "-m", message}
+	var args []string
 	if author != nil && author.Name != "" && author.Email != "" {
-		args = append([]string{"commit", "--author", author.Name + " <" + author.Email + ">", "-m", message}, args[2:]...)
+		args = []string{"commit", "--author", author.Name + " <" + author.Email + ">", "-m", message}
+	} else {
+		args = []string{"commit", "-m", message}
 	}
 
 	_, err := r.exec(ctx, args...)
@@ -266,9 +274,10 @@ func (r *Repository) ListTags(ctx context.Context) ([]Tag, errors.Envelope) {
 func (r *Repository) GetDiff(ctx context.Context, from, to string) (*Diff, errors.Envelope) {
 	// Stub implementation - will be expanded
 	return &Diff{
-		From:  from,
-		To:    to,
-		Files: []FileDiff{},
+		From:    from,
+		To:      to,
+		Files:   []FileDiff{},
+		Summary: DiffSummary{FilesChanged: 0, Additions: 0, Deletions: 0},
 	}, errors.Envelope{}
 }
 
@@ -311,9 +320,10 @@ type Tag struct {
 }
 
 type Diff struct {
-	From  string     `json:"from"`
-	To    string     `json:"to"`
-	Files []FileDiff `json:"files"`
+	From    string      `json:"from"`
+	To      string      `json:"to"`
+	Files   []FileDiff  `json:"files"`
+	Summary DiffSummary `json:"summary"`
 }
 
 type FileDiff struct {
@@ -333,3 +343,10 @@ const (
 	FileStatusRenamed  FileStatus = "renamed"
 	FileStatusCopied   FileStatus = "copied"
 )
+
+// DiffSummary mirrors the public git.DiffSummary
+type DiffSummary struct {
+	FilesChanged int `json:"filesChanged"`
+	Additions    int `json:"additions"`
+	Deletions    int `json:"deletions"`
+}
