@@ -26,6 +26,11 @@ Archon loads network proxy and secrets policies from project settings at runtime
 - proxyPolicy.redactResponseHeaders: empty by default (no redaction)
 - secretsPolicy.returnValues: false by default (values are redacted)
 
+### Important: Default Proxy Behavior
+
+- If `proxyPolicy` is NOT present in project settings, the network proxy is DISABLED.
+- In this state, `HostService.NetRequest()` returns `NOT_IMPLEMENTED` ("Proxy executor not configured").
+
 ## Behavior
 
 - Proxy policy is enforced by `PolicyProxyExecutor` before/after HTTP execution.

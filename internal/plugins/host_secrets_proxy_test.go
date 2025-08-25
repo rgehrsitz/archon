@@ -14,6 +14,32 @@ type fakeProxy struct {
 	err  error
 }
 
+func TestHostService_ProxyDisabled_WhenNotConfigured(t *testing.T) {
+    basePath, _, _, ns, idx, pm, _, pluginID := setupHostTest(t)
+    _ = basePath
+
+    logger := logging.NewTestLogger()
+    // secretsStore=nil, proxyExecutor=nil -> proxy disabled
+    hs := NewHostService(logger, ns, nil, idx, pm, nil, nil)
+
+    ctx := context.Background()
+
+    // Declare and grant net permission so failure reason isn't authorization
+    declared := pm.GetDeclaredPermissions(pluginID)
+    declared = append(declared, PermissionNet)
+    pm.DeclarePermissions(pluginID, declared)
+    env := pm.GrantPermission(pluginID, PermissionNet, false, 0)
+    if env.Code != "" {
+        t.Fatalf("failed to grant net: %+v", env)
+    }
+
+    req := ProxyRequest{Method: "GET", URL: "https://example.test/hello"}
+    _, env = hs.NetRequest(ctx, pluginID, req)
+    if env.Code != "NOT_IMPLEMENTED" { // Proxy executor not configured
+        t.Fatalf("expected NOT_IMPLEMENTED when proxy disabled, got: %+v", env)
+    }
+}
+
 func (f *fakeProxy) Do(ctx context.Context, req ProxyRequest) (ProxyResponse, error) {
 	f.last = req
 	return f.resp, f.err

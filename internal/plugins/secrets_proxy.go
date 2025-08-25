@@ -3,10 +3,14 @@ package plugins
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -41,6 +45,87 @@ func (s *InMemorySecretsStore) Get(ctx context.Context, key string) (*SecretValu
 }
 
 func (s *InMemorySecretsStore) List(ctx context.Context, prefix string) ([]string, error) {
+	var out []string
+	for k := range s.items {
+		if len(prefix) == 0 || (len(k) >= len(prefix) && k[:len(prefix)] == prefix) {
+			out = append(out, k)
+		}
+	}
+	return out, nil
+}
+
+// FileSecretsStore is a file-backed implementation that loads secrets
+// from a JSON file at .archon/secrets.json under the project directory.
+// It is read-concurrency safe. Persistence for writes will be added when
+// a Set API is introduced.
+type FileSecretsStore struct {
+	path  string
+	mu    sync.RWMutex
+	items map[string]*SecretValue
+}
+
+// NewFileSecretsStore initializes a FileSecretsStore by loading secrets
+// from the provided absolute file path. If the file does not exist, an
+// empty store is returned. The parent directory will be created if needed.
+func NewFileSecretsStore(path string) (*FileSecretsStore, error) {
+	if path == "" {
+		return nil, &PolicyError{Reason: "invalid_secrets_path"}
+	}
+	// Ensure parent directory exists
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+
+	s := &FileSecretsStore{
+		path:  path,
+		items: make(map[string]*SecretValue),
+	}
+
+	// Load file if present
+	if _, err := os.Stat(path); err == nil {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		// Expect a JSON object: key -> SecretValue
+		var raw map[string]SecretValue
+		if len(b) > 0 {
+			if err := json.Unmarshal(b, &raw); err != nil {
+				return nil, err
+			}
+		}
+		for k, v := range raw {
+			// Ensure Name field is set to key if missing
+			sv := v
+			if sv.Name == "" {
+				sv.Name = k
+			}
+			// Keep redaction flag/value as persisted
+			vv := sv
+			s.items[k] = &vv
+		}
+	} else if !os.IsNotExist(err) {
+		// Any error other than not-exist should be returned
+		return nil, err
+	}
+
+	return s, nil
+}
+
+func (s *FileSecretsStore) Get(ctx context.Context, key string) (*SecretValue, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	v, ok := s.items[key]
+	if !ok {
+		return nil, false, nil
+	}
+	c := *v
+	return &c, true, nil
+}
+
+func (s *FileSecretsStore) List(ctx context.Context, prefix string) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	var out []string
 	for k := range s.items {
 		if len(prefix) == 0 || (len(k) >= len(prefix) && k[:len(prefix)] == prefix) {

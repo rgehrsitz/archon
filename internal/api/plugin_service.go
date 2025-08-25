@@ -90,10 +90,10 @@ func (s *PluginService) InitializePluginSystem(ctx context.Context) errors.Envel
                 }
             }
 
-            // Parse proxy policy
-            var proxyPolicy plugins.ProxyPolicy
+            // Parse proxy policy and only enable proxy if configured
             if settings != nil {
                 if ppAny, ok := settings["proxyPolicy"]; ok {
+                    var proxyPolicy plugins.ProxyPolicy
                     if m, ok2 := ppAny.(map[string]any); ok2 {
                         // allowedMethods
                         if v, ok := m["allowedMethods"].([]any); ok {
@@ -120,12 +120,11 @@ func (s *PluginService) InitializePluginSystem(ctx context.Context) errors.Envel
                             }
                         }
                     }
+                    // Build proxy executor with policy wrapper (enabled)
+                    baseHTTP := plugins.NewHTTPProxyExecutor(30 * time.Second)
+                    proxyExec = plugins.NewPolicyProxyExecutor(baseHTTP, proxyPolicy)
                 }
             }
-
-            // Build proxy executor with policy wrapper
-            baseHTTP := plugins.NewHTTPProxyExecutor(30 * time.Second)
-            proxyExec = plugins.NewPolicyProxyExecutor(baseHTTP, proxyPolicy)
 
             // Parse secrets policy and build policy-wrapped store
             var secretsPolicy plugins.SecretsPolicy
@@ -139,7 +138,12 @@ func (s *PluginService) InitializePluginSystem(ctx context.Context) errors.Envel
                     }
                 }
             }
-            baseSecrets := plugins.NewInMemorySecretsStore(map[string]string{})
+            // Initialize file-backed secrets store at <projectPath>/.archon/secrets.json
+            secretsPath := filepath.Join(projectPath, ".archon", "secrets.json")
+            baseSecrets, ferr := plugins.NewFileSecretsStore(secretsPath)
+            if ferr != nil {
+                return errors.WrapError(errors.ErrStorageFailure, "Failed to initialize secrets store", ferr)
+            }
             secretsStore = plugins.NewPolicySecretsStore(baseSecrets, secretsPolicy)
         }
     }
