@@ -53,7 +53,7 @@ This document tracks progress against the complete Archon vision as defined in t
   - Finalize plugin manifest + host API per ADR-013
   - Wire Wails bindings in `internal/api/plugin_service.go`
   - Implement permission enforcement in `internal/plugins/permissions.go`
-  - Plan secrets and network proxy services scaffolding
+  - Implement secrets and network proxy services with policy enforcement (file-backed secrets store, policy proxy)
 
 __Just completed (2025-08-24)__
 - Fixed backend compilation for plugin system
@@ -64,8 +64,12 @@ __Just completed (2025-08-24)__
   - Wired proxy and secrets policies via `PluginService.InitializePluginSystem()`
     - `PolicyProxyExecutor` enforcing allowed methods, allow/deny host suffixes, and response header redaction
     - `PolicySecretsStore` enforcing `returnValues` redaction policy (default false)
-    - Injected into `HostService` and added focused tests in `internal/plugins/policy_test.go`
+    - Injected into `HostService` and added tests:
+      - `internal/api/plugin_service_secrets_test.go` (permissions + redaction end-to-end)
+      - `internal/plugins/secrets_file_store_test.go` (file-backed store behavior and concurrency)
+      - `internal/plugins/host_test.go` (read permission enforcement)
     - Documented config schema and defaults in `docs/implementation/policy-config.md`
+    - Implemented file-backed secrets store (`FileSecretsStore`) at `.archon/secrets.json`; write/persist API pending
 
 ## 📋 Pending (Prioritized Roadmap)
 

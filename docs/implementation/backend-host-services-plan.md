@@ -13,7 +13,9 @@ Implement the Go backend services that support the frontend plugin system, bridg
 - __In progress__: ADR-013 alignment for host services
   - Wails bindings in `internal/api/plugin_service.go`
   - Permission enforcement in `internal/plugins/permissions.go`
-  - Secrets and network proxy scaffolding
+  - Secrets and network proxy services wired with policy enforcement
+    - File-backed secrets store at `.archon/secrets.json` via `FileSecretsStore`
+    - Policy-enforced proxy via `PolicyProxyExecutor`
 
 ## Phase 2.1: Core Backend Services
 
@@ -45,16 +47,17 @@ Implement the Go backend services that support the frontend plugin system, bridg
 - Integration with existing project structure
 
 ### 5. Network Proxy Service
-**Location**: `internal/plugins/network.go`
-- Scoped HTTP client for plugin network requests
-- Rate limiting and security controls
-- URL allowlist enforcement
+**Location**: `internal/plugins/secrets_proxy.go`
+- Policy-enforced HTTP proxy executor (`PolicyProxyExecutor`) wrapping `HTTPProxyExecutor`
+- Allowed/denied host suffixes and allowed methods
+- Response header redaction
 
 ### 6. Secrets Management
-**Location**: `internal/plugins/secrets.go`
-- Encrypted storage for plugin authentication tokens
+**Location**: `internal/plugins/secrets_proxy.go`
+- File-backed `FileSecretsStore` at `.archon/secrets.json` (read-only for now)
+- `PolicySecretsStore` enforcing `secretsPolicy.returnValues` (default false)
 - Scoped access based on plugin permissions
-- Integration with OS keychain where available
+- Write/persist API pending; OS keychain integration planned
 
 ## Integration Points
 
@@ -85,8 +88,7 @@ internal/plugins/
 ├── manager.go          # Plugin lifecycle management
 ├── permissions.go      # Permission enforcement  
 ├── host.go            # Host service implementations
-├── network.go         # HTTP proxy for plugins
-├── secrets.go         # Secrets management
+├── secrets_proxy.go   # Secrets + Proxy policy implementations
 └── types.go           # Go types matching TypeScript interfaces
 
 internal/api/

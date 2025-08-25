@@ -45,8 +45,9 @@ Archon loads network proxy and secrets policies from project settings at runtime
 
 - Wired in `internal/api/plugin_service.go`:
   - Builds `HTTPProxyExecutor` and wraps with `PolicyProxyExecutor`
-  - Builds an `InMemorySecretsStore` and wraps with `PolicySecretsStore`
+  - Builds a file-backed `FileSecretsStore` at `<projectPath>/.archon/secrets.json` and wraps with `PolicySecretsStore`
   - Both are injected into `HostService` via `NewHostService`
 - Tests:
-  - `internal/plugins/policy_test.go` covers method deny, host deny, header redaction, and secrets value redaction
-  - Existing `host_secrets_proxy_test.go` covers permission enforcement
+  - `internal/api/plugin_service_secrets_test.go` covers permission enforcement and redaction policy end-to-end via PluginService
+  - `internal/plugins/secrets_file_store_test.go` covers file-backed secrets loading, listing, and concurrency safety
+  - `internal/plugins/host_test.go` covers general host permission enforcement (read repo, query)

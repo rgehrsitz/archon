@@ -11,6 +11,9 @@ The frontend plugin runtime (per ADR-013) is implemented: sandboxed execution, f
 - Corrected `ProjectService.GetCurrentProject()` usage and plugin directory handling in `internal/api/plugin_service.go`.
 - Replaced nonexistent `logging.Global()` with `*logging.GetLogger()` in `app.go`.
 - Verified index manager API usage matches `internal/index/index.go`.
+- Wired secrets and proxy policies in `PluginService.InitializePluginSystem()`:
+  - File-backed secrets store at `.archon/secrets.json` via `FileSecretsStore` wrapped by `PolicySecretsStore` (`secretsPolicy.returnValues` default false)
+  - HTTP proxy wrapped by `PolicyProxyExecutor` (enabled when `proxyPolicy` is present in project settings)
 
 ## ✅ Phase 1: Core Runtime (Frontend COMPLETE)
 
@@ -104,8 +107,8 @@ Based on the comprehensive foundation now in place, here are the logical next ar
 **Why Critical**: Bridge the frontend plugin system to actual Wails backend
 - Implement actual host services in Go backend
 - Wire up repository operations to existing node/store systems
-- Implement secrets management backend
-- Add network proxy for plugin HTTP requests
+- Secrets backend: file-backed read path implemented with policy redaction; write/persist API pending
+- Network proxy: policy executor wired; enable via project `settings.proxyPolicy`
 
 ### 2.3 Advanced Plugin Types (MEDIUM PRIORITY)
 **Why Next**: Expand beyond basic importers to showcase full system
@@ -142,11 +145,11 @@ Testing Infrastructure ✅
 
 ### Missing Components (Phase 2)
 ```
-Backend Integration ❌
+Backend Integration ⏳
 ├── Go Host Services Implementation
 ├── Repository Operation Bridging  
-├── Secrets Management Backend
-└── Network Proxy Service
+├── Secrets write/persist API + optional OS keychain integration
+└── Proxy defaults, UI enablement, and additional policy tests
 
 UI Integration ❌
 ├── Plugin Manager Interface
