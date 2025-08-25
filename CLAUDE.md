@@ -30,12 +30,16 @@ Archon is a desktop knowledge workbench for hierarchical projects with first-cla
 - `index/sqlite/` - SQLite indexing for fast search
 - `git/` - Hybrid Git implementation (system git + go-git)
 - `merge/` - Semantic merge operations
+- `diff/` - Semantic diff engine
+- `plugins/` - Plugin system backend with host services
+- `snapshot/` - Git-backed snapshot management
 - `api/` - Wails service layer
 - `types/` - Core data models
 
 ### Frontend Structure (`frontend/src/`)
 - `lib/api/` - Go service wrappers
-- `lib/components/ui/` - shadcn-svelte components (40+ components)
+- `lib/components/ui/` - bits-ui based components (50+ component categories, 250+ components)
+- `lib/plugins/` - Plugin system runtime with sandboxed execution
 - Built with Svelte 5 runes, Tailwind 4 CSS-first config
 
 ### Key Technical Details

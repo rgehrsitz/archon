@@ -51,13 +51,13 @@ This document tracks progress against the complete Archon vision as defined in t
 
 - **ADR-013 Backend Host Services Implementation: COMPLETE**
   - ✅ Complete plugin manifest + host API alignment per ADR-013
-  - ✅ Wails bindings operational in `internal/api/plugin_service.go` 
+  - ✅ Wails bindings operational in `internal/api/plugin_service.go`
   - ✅ Permission enforcement implemented in `internal/plugins/permissions.go`
   - ✅ Secrets and network proxy services with policy enforcement operational
   - ✅ Frontend-backend integration via complete TypeScript/JavaScript bindings
   - ✅ All core host service methods functional and tested (30+ tests pass)
 
-## __Just completed (2025-08-24)__
+## Just completed (2025-08-24)
 
 - Fixed backend compilation for plugin system
   - Migrated zerolog calls to chained form across plugin backend (`logger.Info().Msg(...)`)
@@ -78,20 +78,20 @@ This document tracks progress against the complete Archon vision as defined in t
 
 ### Phase 1: Data Layer Extensions
 
-- [x] __SQLite Search Index__ - Fast search with FTS5 (ADR-005)
+- [x] **SQLite Search Index** - Fast search with FTS5 (ADR-005)
   - Rebuildable index in `/.archon/index/archon.db`
   - Full-text search on names, descriptions, properties
   - Incremental updates on node changes
   - Index health monitoring and rebuild capability
 
-- [x] __Logging System__ - Rotating logs with error envelopes (ADR-006)
+- [x] **Logging System** - Rotating logs with error envelopes (ADR-006)
   - Structured logging with zerolog
   - Rotating files in `logs/` directory (10MB x 5 files)
   - Error correlation and debugging support
   - Configurable log levels
   - Recent logs retrieval with rotation awareness (includes `.gz`)
 
-- [x] __Schema Migration System__ - Forward-only migrations with backup (ADR-007)
+- [x] **Schema Migration System** - Forward-only migrations with backup (ADR-007)
   - Versioned migration steps
   - Automatic backup creation in `/backups/<ISO8601>/`
   - Read-only mode for newer schemas
@@ -99,7 +99,7 @@ This document tracks progress against the complete Archon vision as defined in t
 
 ### Phase 2: Git & Versioning Layer
 
-- [x] __Git Integration__ - Hybrid CLI/go-git implementation (ADR-008, ADR-010)
+- [x] **Git Integration** - Hybrid CLI/go-git implementation (ADR-008, ADR-010)
   - System git for porcelain operations (push, pull, credentials)
   - go-git for fast read operations (log, diff, tree walking)
   - Git repository initialization and LFS setup
@@ -108,14 +108,14 @@ This document tracks progress against the complete Archon vision as defined in t
   - Tag listing via go-git; tag creation via CLI
   - Basic CLI diff command with `--summary-only` and `--json` flags
 
-- [ ] __Snapshot System__ - Commit + immutable tag pairs
+- [ ] **Snapshot System** - Commit + immutable tag pairs
   - [x] Create snapshots (commit + tag)
   - [x] Snapshot metadata file (`.archon/snapshots/<name>.json`)
   - [x] List/get snapshots and restore by name
   - [ ] Linear history presentation in UI
   - [ ] Snapshot comparison UI and diff integration
 
-- [x] __Semantic Diff Engine__ - Rename/move/property change detection (ADR-003)
+- [x] **Semantic Diff Engine** - Rename/move/property change detection (ADR-003)
   - [x] Structured change detection (not text-based)
   - [x] Move detection via parent ID changes
   - [x] Property and structural change identification
@@ -123,7 +123,7 @@ This document tracks progress against the complete Archon vision as defined in t
   - [x] CLI filters with `--only` flag for change type filtering
   - [x] Deterministic ordering of changes and output
 
-- [x] __3-Way Merge System__ - Conflict resolution with sibling ordering (ADR-003)
+- [x] **3-Way Merge System** - Conflict resolution with sibling ordering (ADR-003)
   - [x] Field-level merge resolution and conflict detection
   - [x] Non-conflicting change application (rename, move, property, order)
   - [x] CLI merge command with dry-run, JSON output, and verbose reporting
@@ -133,7 +133,7 @@ This document tracks progress against the complete Archon vision as defined in t
 
 ### Phase 3: Content & Plugin System
 
-- [x] __Content-Addressed Attachments__ - LFS integration for ≥1MB files (ADR-002)
+- [x] **Content-Addressed Attachments** - LFS integration for ≥1MB files (ADR-002)
   - [x] Content hashing and deduplication using SHA-256
   - [x] Git LFS integration for large files (≥1MB configurable threshold)
   - [x] Attachment reference validation for node properties
@@ -143,68 +143,68 @@ This document tracks progress against the complete Archon vision as defined in t
   - [x] Comprehensive test coverage for attachment system
   - [x] Garbage collection for unused attachments with dry-run support
 
-- [x] __Comprehensive Plugin System Backend__ - Sandboxed extensibility platform (ADR-004, ADR-013)
+- [x] **Comprehensive Plugin System Backend** - Sandboxed extensibility platform (ADR-004, ADR-013)
   - Status (2025-08-25): **COMPLETE** - ADR-013 Backend Host Services implementation finished. Full frontend-backend integration operational with complete Wails bindings, permission enforcement, secrets/proxy policies, and all core host service methods functional. See `docs/implementation/plugin-system-status.md`.
   - Completed: All read-only host methods (GetNode, ListChildren, Query), write paths (Apply, Commit, Snapshot), index write, network proxy, secrets management, and comprehensive backend permission enforcement.
   - [x] Core plugin runtime with Web Worker sandbox environment
   - [x] TypeScript API definitions and host service interfaces  
   - [x] Permission system with least-privilege security model
   - [x] Plugin lifecycle management and event system
-  - [ ] __Plugin Types (10 categories):__
-    - [ ] __Importer__ - Create nodes from external data sources
-    - [ ] __Exporter__ - Serialize nodes/subtrees to external formats
-    - [ ] __Transformer__ - Bulk edits and data transformations
-    - [ ] __Validator__ - Read-only checks with commit/snapshot blocking
-    - [ ] __Panel__ - Custom UI panels and visualizations
-    - [ ] __Provider__ - External system connectors (CMDB/ERP/Jira)
-    - [ ] __AttachmentProcessor__ - File analysis and metadata extraction
-    - [ ] __ConflictResolver__ - Custom semantic merge strategies
-    - [ ] __SearchIndexer__ - Domain-specific search tokenization
-    - [ ] __UIContrib__ - Commands, menus, and contextual UI elements
-  - [x] __Core Infrastructure:__
+  - [ ] **Plugin Types (10 categories):**
+    - [ ] **Importer** - Create nodes from external data sources
+    - [ ] **Exporter** - Serialize nodes/subtrees to external formats
+    - [ ] **Transformer** - Bulk edits and data transformations
+    - [ ] **Validator** - Read-only checks with commit/snapshot blocking
+    - [ ] **Panel** - Custom UI panels and visualizations
+    - [ ] **Provider** - External system connectors (CMDB/ERP/Jira)
+    - [ ] **AttachmentProcessor** - File analysis and metadata extraction
+    - [ ] **ConflictResolver** - Custom semantic merge strategies
+    - [ ] **SearchIndexer** - Domain-specific search tokenization
+    - [ ] **UIContrib** - Commands, menus, and contextual UI elements
+  - [x] **Core Infrastructure:**
     - [x] Plugin manifest system with versioning and integrity
     - [x] Permission consent dialogs and runtime enforcement
     - [x] Plugin discovery and local installation (~/.archon/plugins)
     - [x] Secret management for external service authentication
     - [x] Event bus for lifecycle hooks and workflow automation
-  - [ ] __Reference Implementations:__
+  - [ ] **Reference Implementations:**
     - [ ] CSV importer plugin (demonstrating Importer pattern)
     - [ ] Jira provider plugin (Provider + Validator + Events)
     - [ ] PDF processor plugin (AttachmentProcessor)
 
 ### Phase 4: User Interface
 
-- [ ] __UI Components__ - Tree navigation, property editors, diff viewers
+- [ ] **UI Components** - Tree navigation, property editors, diff viewers
   - Virtualized tree component for large hierarchies
   - Property editor with type-specific inputs
   - Diff viewer with semantic change display
   - Context menus and keyboard shortcuts
 
-- [ ] __Project Dashboard__ - Recent snapshots, sync status, quick actions
+- [ ] **Project Dashboard** - Recent snapshots, sync status, quick actions
   - Project overview and statistics
   - Recent activity and snapshot list
   - Git sync status and controls
   - Quick import/export actions
 
-- [ ] __Hierarchy Workbench__ - Multi-pane layout with tree navigation
+- [ ] **Hierarchy Workbench** - Multi-pane layout with tree navigation
   - Resizable three-pane layout
   - Tree navigation with search/filter
   - Property details panel
   - History sidebar with snapshot navigation
 
-- [ ] __Diff & Merge UI__ - Visual conflict resolution interface
+- [ ] **Diff & Merge UI** - Visual conflict resolution interface
   - Side-by-side diff view
   - Interactive merge conflict resolution
   - Undo/redo for merge decisions
   - Preview mode before applying changes
 
-- [ ] __Import Wizard__ - Plugin validation, preview, target selection
+- [ ] **Import Wizard** - Plugin validation, preview, target selection
   - Plugin selection and validation
   - Data preview and mapping
   - Target location selection (new project vs. existing node)
   - Batch import with progress tracking
 
-- [ ] __Settings UI__ - Git remote config, LFS settings, theme selection
+- [ ] **Settings UI** - Git remote config, LFS settings, theme selection
   - Git remote repository configuration
   - LFS threshold and storage settings
   - Theme and UI preferences
@@ -212,51 +212,51 @@ This document tracks progress against the complete Archon vision as defined in t
 
 ### Phase 5: Distribution & CLI
 
-- [ ] __Build & Release__ - MSI/DMG/AppImage with code signing (ADR-009)
+- [ ] **Build & Release** - MSI/DMG/AppImage with code signing (ADR-009)
   - Multi-platform build pipeline
   - Code signing for Windows (Authenticode) and macOS (Developer ID)
   - Linux AppImage with GPG signatures
   - Automated release with checksums
 
-- [x] __CLI Interface__ - Automation commands for power users
+- [x] **CLI Interface** - Core automation commands for power users
   - [x] Three-way merge command with conflict detection and resolution
   - [x] Semantic diff command with filtering and JSON output  
   - [x] Snapshot management commands (create, list, restore)
   - [x] Attachment management commands (add, list, get, remove, verify)
   - [x] Comprehensive test coverage for CLI commands
-  - [ ] Project operations (create, open, validate)
+  - [ ] Project operations (create, open, validate) - currently stubs
   - [ ] Node manipulation commands  
-  - [ ] Import/export automation
+  - [ ] Import/export automation - currently stubs
   - [ ] Additional scripting and batch operations
 
 ## 🎯 Current Focus
 
-__Current Focus (post-ADR-013 completion):__ Plugin Manager UI and reference implementations
+**Current Focus (post-ADR-013 completion):** Plugin Manager UI and reference implementations
 
-1. __Plugin Manager UI__ (HIGH PRIORITY)
+1. **Plugin Manager UI** (HIGH PRIORITY)
    - User interface for plugin discovery, installation, and management
    - Permission management interface with consent dialogs
    - Plugin enable/disable controls and configuration
-2. __Reference Plugin Implementation__
+2. **Reference Plugin Implementation**
    - Complete CSV Importer plugin to validate end-to-end functionality
    - Plugin developer documentation and examples
-3. __Snapshot System UI integration__
+3. **Snapshot System UI integration**
    - Linear history view and comparison UI
-4. __Build & Release pipeline__
+4. **Build & Release pipeline**
    - Distribute CLI (and later desktop) artifacts
 
 ## 📊 Progress Summary
 
-- __Foundation Layer__: ✅ Complete (6/6 major components)
-- __Data Extensions__: ✅ Complete (3/3 components)
-- __Git & Versioning__: ✅ 3/4 components (Git Integration, Semantic Diff, 3-Way Merge core functionality complete)
-- __Content & Plugins__: ✅ Complete (2/2 components - Content-Addressed Attachments + Plugin System Backend complete)
-- __User Interface__: ⏳ 0/6 components
-- __Distribution__: ⏳ 1/2 components (CLI Interface core functionality complete)
+- **Foundation Layer**: ✅ Complete (6/6 major components)
+- **Data Extensions**: ✅ Complete (3/3 components)
+- **Git & Versioning**: ✅ 3/4 components (Git Integration, Semantic Diff, 3-Way Merge core functionality complete)
+- **Content & Plugins**: ✅ Complete (2/2 components - Content-Addressed Attachments + Plugin System Backend complete)
+- **User Interface**: ⏳ 0/6 components
+- **Distribution**: ⏳ 1/2 components (CLI Interface core commands complete, project/import stubs remain)
 
-__Overall Progress__: ~85% complete (foundation + data + git/versioning + content + plugins backend + CLI core features complete)
+**Overall Progress**: ~85% complete (foundation + data + git/versioning + content + plugins backend + CLI core features complete)
 
-__Note__: The Plugin System backend implementation has been completed per ADR-013, including comprehensive host services, security model, and frontend-backend integration. The remaining work focuses on UI components and reference implementations.
+**Note**: The Plugin System backend implementation has been completed per ADR-013, including comprehensive host services, security model, and frontend-backend integration. The remaining work focuses on UI components and reference implementations.
 
 ---
 
