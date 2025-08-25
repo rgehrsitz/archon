@@ -150,17 +150,17 @@ This document tracks progress against the complete Archon vision as defined in t
   - [x] TypeScript API definitions and host service interfaces  
   - [x] Permission system with least-privilege security model
   - [x] Plugin lifecycle management and event system
-  - [ ] **Plugin Types (10 categories):**
-    - [ ] **Importer** - Create nodes from external data sources
-    - [ ] **Exporter** - Serialize nodes/subtrees to external formats
-    - [ ] **Transformer** - Bulk edits and data transformations
-    - [ ] **Validator** - Read-only checks with commit/snapshot blocking
-    - [ ] **Panel** - Custom UI panels and visualizations
-    - [ ] **Provider** - External system connectors (CMDB/ERP/Jira)
-    - [ ] **AttachmentProcessor** - File analysis and metadata extraction
-    - [ ] **ConflictResolver** - Custom semantic merge strategies
-    - [ ] **SearchIndexer** - Domain-specific search tokenization
-    - [ ] **UIContrib** - Commands, menus, and contextual UI elements
+  - [x] **Plugin Type Infrastructure (10 categories):** - TypeScript interfaces and backend support complete
+    - [x] **Importer** - Interface + backend support + CSV example plugin ✅
+    - [ ] **Exporter** - Interface + backend support ✅, no example plugins yet
+    - [ ] **Transformer** - Interface + backend support ✅, no example plugins yet  
+    - [x] **Validator** - Interface + backend support + Data Validator example ✅
+    - [ ] **Panel** - Interface + backend support ✅, no example plugins yet
+    - [ ] **Provider** - Interface + backend support ✅, no example plugins yet
+    - [ ] **AttachmentProcessor** - Interface + backend support ✅, no example plugins yet
+    - [ ] **ConflictResolver** - Interface + backend support ✅, no example plugins yet
+    - [ ] **SearchIndexer** - Interface + backend support ✅, no example plugins yet
+    - [ ] **UIContrib** - Interface + backend support ✅, no example plugins yet
   - [x] **Core Infrastructure:**
     - [x] Plugin manifest system with versioning and integrity
     - [x] Permission consent dialogs and runtime enforcement
@@ -168,7 +168,8 @@ This document tracks progress against the complete Archon vision as defined in t
     - [x] Secret management for external service authentication
     - [x] Event bus for lifecycle hooks and workflow automation
   - [ ] **Reference Implementations:**
-    - [ ] CSV importer plugin (demonstrating Importer pattern)
+    - [x] CSV importer plugin (demonstrating Importer pattern) - example complete
+    - [x] Data validator plugin (demonstrating Validator pattern) - example complete
     - [ ] Jira provider plugin (Provider + Validator + Events)
     - [ ] PDF processor plugin (AttachmentProcessor)
 
