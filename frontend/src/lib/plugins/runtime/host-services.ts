@@ -18,6 +18,7 @@ import type {
 import { PluginError } from '../api.js';
 
 // Import Wails services
+import * as PluginAPI from '../../../wailsjs/go/api/PluginService.js';
 import * as NodeAPI from '../../api/nodes.js';
 import * as GitAPI from '../../api/git.js';
 import * as SnapshotAPI from '../../api/snapshots.js';
@@ -33,11 +34,13 @@ export class HostService implements Host {
   private permissionManager: UIPermissionManager;
   private uiService: UIService;
   private secretService: SecretService;
+  private pluginId: string;
 
   constructor(permissions: Permission[], pluginId: string, pluginName: string) {
     this.permissionManager = new UIPermissionManager(permissions, pluginId, pluginName);
     this.uiService = new UIService();
     this.secretService = new SecretService();
+    this.pluginId = pluginId;
   }
 
   /**
@@ -55,8 +58,8 @@ export class HostService implements Host {
     this.requirePermission('readRepo');
     
     try {
-      const node = await NodeAPI.getNode(id);
-      return node ? this.convertToArchonNode(node) : null;
+      const nodeData = await PluginAPI.PluginGetNode('', this.pluginId, id);
+      return nodeData ? this.convertPluginNodeToArchonNode(nodeData) : null;
     } catch (error) {
       throw new PluginError(
         `Failed to get node: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -70,8 +73,7 @@ export class HostService implements Host {
     this.requirePermission('readRepo');
     
     try {
-      const children = await NodeAPI.listChildren(id);
-      return children.map(child => child.id);
+      return await PluginAPI.PluginListChildren('', this.pluginId, id);
     } catch (error) {
       throw new PluginError(
         `Failed to list children: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -85,10 +87,8 @@ export class HostService implements Host {
     this.requirePermission('readRepo');
     
     try {
-      // Basic query implementation using search API
-      // Treat selectors as search queries for now
-      const results = await SearchAPI.searchNodes(selector, 100);
-      return results.results.map(result => result.nodeId);
+      const results = await PluginAPI.PluginQuery('', this.pluginId, selector, 100);
+      return results.map(nodeData => nodeData.id || '');
     } catch (error) {
       throw new PluginError(
         `Failed to query nodes: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -102,10 +102,8 @@ export class HostService implements Host {
     this.requirePermission('writeRepo');
     
     try {
-      // Apply each mutation sequentially
-      for (const edit of edits) {
-        await this.applyMutation(edit);
-      }
+      const pluginMutations = edits.map(edit => this.convertToPluginMutation(edit));
+      await PluginAPI.PluginApplyMutations('', this.pluginId, pluginMutations);
     } catch (error) {
       throw new PluginError(
         `Failed to apply mutations: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -123,9 +121,7 @@ export class HostService implements Host {
     this.requirePermission('writeRepo');
     
     try {
-      // Note: Git commit API may need to be implemented in Wails backend
-      // For now, return a placeholder
-      throw new PluginError('Git commit not yet implemented in backend', 'NOT_IMPLEMENTED', 'host');
+      return await PluginAPI.PluginCommit('', this.pluginId, message);
     } catch (error) {
       throw new PluginError(
         `Failed to commit: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -139,8 +135,8 @@ export class HostService implements Host {
     this.requirePermission('writeRepo');
     
     try {
-      const result = await SnapshotAPI.createSnapshot(tag, notes?.description || '', notes || {});
-      return result.hash || tag;
+      const message = notes?.description || `Snapshot: ${tag}`;
+      return await PluginAPI.PluginSnapshot('', this.pluginId, message);
     } catch (error) {
       throw new PluginError(
         `Failed to create snapshot: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -157,33 +153,15 @@ export class HostService implements Host {
   async readAttachment(hash: string): Promise<ArrayBuffer> {
     this.requirePermission('attachments');
     
-    try {
-      // TODO: Implement attachment reading
-      // This would call to the Go backend to read attachment by hash
-      throw new PluginError('Attachment reading not yet implemented', 'NOT_IMPLEMENTED', 'host');
-    } catch (error) {
-      throw new PluginError(
-        `Failed to read attachment: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'ATTACHMENT_READ_FAILED',
-        'host'
-      );
-    }
+    // Note: Attachment reading will be implemented when AttachmentProcessor plugins are added
+    throw new PluginError('Attachment reading not yet implemented', 'NOT_IMPLEMENTED', 'host');
   }
 
   async writeAttachment(bytes: ArrayBuffer, filename?: string): Promise<{ hash: string, path: string }> {
     this.requirePermission('attachments');
     
-    try {
-      // TODO: Implement attachment writing
-      // This would call to the Go backend to store the attachment
-      throw new PluginError('Attachment writing not yet implemented', 'NOT_IMPLEMENTED', 'host');
-    } catch (error) {
-      throw new PluginError(
-        `Failed to write attachment: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'ATTACHMENT_WRITE_FAILED',
-        'host'
-      );
-    }
+    // Note: Attachment writing will be implemented when AttachmentProcessor plugins are added
+    throw new PluginError('Attachment writing not yet implemented', 'NOT_IMPLEMENTED', 'host');
   }
 
   // ============================================================================
@@ -193,9 +171,36 @@ export class HostService implements Host {
   async fetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
     this.requirePermission('net');
     
-    // TODO: Implement network access with origin validation and rate limiting
-    // For now, this is a placeholder
-    throw new PluginError('Network access not yet implemented', 'NOT_IMPLEMENTED', 'host');
+    try {
+      const url = typeof input === 'string' ? input : input.url;
+      const method = init?.method || 'GET';
+      const headers = init?.headers || {};
+      const body = init?.body ? new Uint8Array(await new Response(init.body).arrayBuffer()) : undefined;
+      
+      const proxyReq = {
+        method,
+        url,
+        headers: typeof headers === 'object' ? headers as Record<string, string> : {},
+        body: body ? Array.from(body) : undefined,
+        timeoutMs: 30000
+      };
+      
+      const proxyResp = await PluginAPI.PluginNetRequest('', this.pluginId, proxyReq);
+      
+      return new Response(
+        proxyResp.body ? new Uint8Array(proxyResp.body) : null,
+        {
+          status: proxyResp.status,
+          headers: proxyResp.headers || {}
+        }
+      );
+    } catch (error) {
+      throw new PluginError(
+        `Failed to fetch: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'FETCH_FAILED',
+        'host'
+      );
+    }
   }
 
   // ============================================================================
@@ -206,9 +211,10 @@ export class HostService implements Host {
     this.requirePermission('indexWrite');
     
     try {
-      // TODO: Implement index writing
-      // This would call to the Go backend to add documents to the search index
-      throw new PluginError('Index writing not yet implemented', 'NOT_IMPLEMENTED', 'host');
+      // Index each document individually
+      for (const doc of docs) {
+        await PluginAPI.PluginIndexPut('', this.pluginId, doc.id, doc.content);
+      }
     } catch (error) {
       throw new PluginError(
         `Failed to write to index: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -276,11 +282,11 @@ export class HostService implements Host {
         return this.ui.notify(args[0]);
       // Secret methods
       case 'secrets.get':
-        return this.secrets.get(args[0]);
+        return this.secretsGet(args[0]);
       case 'secrets.set':
-        return this.secrets.set(args[0], args[1], args[2]);
+        return this.secretsSet(args[0], args[1], args[2]);
       case 'secrets.delete':
-        return this.secrets.delete(args[0]);
+        return this.secretsDelete(args[0]);
       default:
         throw new PluginError(`Unknown host method: ${method}`, 'UNKNOWN_METHOD', 'host');
     }
@@ -300,113 +306,61 @@ export class HostService implements Host {
   }
 
   /**
-   * Converts a Wails node model to an ArchonNode.
+   * Converts a plugin NodeData to an ArchonNode.
    */
-  private convertToArchonNode(node: NodeAPI.Node): ArchonNode {
-    // Convert properties from Wails format to plugin format
-    const properties: Record<string, any> = {};
-    
-    if (node.properties) {
-      for (const [key, prop] of Object.entries(node.properties)) {
-        properties[key] = prop.value;
-      }
-    }
-
+  private convertPluginNodeToArchonNode(nodeData: any): ArchonNode {
     return {
-      id: node.id,
-      name: node.name,
-      description: node.description || '',
-      properties,
-      children: node.children || []
+      id: nodeData.id || '',
+      name: nodeData.name || '',
+      description: nodeData.description || '',
+      properties: nodeData.properties || {},
+      children: nodeData.children || []
     };
   }
 
   /**
-   * Applies a single mutation to the repository.
+   * Converts an ArchonNode mutation to a plugin Mutation.
    */
-  private async applyMutation(mutation: Mutation): Promise<void> {
-    switch (mutation.type) {
-      case 'create':
-        if (!mutation.parentId || !mutation.data) {
-          throw new PluginError('Create mutation requires parentId and data', 'INVALID_MUTATION', 'host');
-        }
-        await NodeAPI.createNode({
-          parentId: mutation.parentId,
-          name: mutation.data.name || 'Untitled',
-          description: mutation.data.description || '',
-          properties: this.convertPropertiesToWailsFormat(mutation.data.properties || {})
-        });
-        break;
-
-      case 'update':
-        if (!mutation.data) {
-          throw new PluginError('Update mutation requires data', 'INVALID_MUTATION', 'host');
-        }
-        await NodeAPI.updateNode({
-          id: mutation.nodeId,
-          name: mutation.data.name,
-          description: mutation.data.description,
-          properties: mutation.data.properties 
-            ? this.convertPropertiesToWailsFormat(mutation.data.properties)
-            : undefined
-        });
-        break;
-
-      case 'delete':
-        await NodeAPI.deleteNode(mutation.nodeId);
-        break;
-
-      case 'move':
-        if (!mutation.parentId) {
-          throw new PluginError('Move mutation requires parentId', 'INVALID_MUTATION', 'host');
-        }
-        await NodeAPI.moveNode({
-          nodeId: mutation.nodeId,
-          newParentId: mutation.parentId,
-          position: mutation.position
-        });
-        break;
-
-      case 'reorder':
-        if (!mutation.parentId || !mutation.data?.children) {
-          throw new PluginError('Reorder mutation requires parentId and children array', 'INVALID_MUTATION', 'host');
-        }
-        await NodeAPI.reorderChildren({
-          parentId: mutation.parentId,
-          orderedChildIds: mutation.data.children
-        });
-        break;
-
-      default:
-        throw new PluginError(`Unknown mutation type: ${(mutation as any).type}`, 'INVALID_MUTATION', 'host');
-    }
+  private convertToPluginMutation(mutation: Mutation): any {
+    return {
+      type: mutation.type,
+      nodeId: mutation.nodeId,
+      parentId: mutation.parentId,
+      data: mutation.data ? {
+        id: mutation.data.id,
+        name: mutation.data.name,
+        description: mutation.data.description,
+        properties: mutation.data.properties,
+        children: mutation.data.children
+      } : null,
+      position: mutation.position
+    };
   }
 
   /**
-   * Converts plugin properties format to Wails properties format.
+   * Secrets methods using plugin API.
    */
-  private convertPropertiesToWailsFormat(properties: Record<string, any>): Record<string, any> {
-    const converted: Record<string, any> = {};
-    
-    for (const [key, value] of Object.entries(properties)) {
-      converted[key] = {
-        value,
-        typeHint: this.inferTypeHint(value)
-      };
+  private async secretsGet(name: string): Promise<string | null> {
+    try {
+      const secret = await PluginAPI.PluginSecretsGet('', this.pluginId, name);
+      return secret && !secret.redacted ? secret.value : null;
+    } catch (error) {
+      throw new PluginError(
+        `Failed to get secret: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'SECRETS_GET_FAILED',
+        'host'
+      );
     }
-    
-    return converted;
   }
 
-  /**
-   * Infers type hint from a value.
-   */
-  private inferTypeHint(value: any): string {
-    if (typeof value === 'string') return 'string';
-    if (typeof value === 'number') return 'number';
-    if (typeof value === 'boolean') return 'boolean';
-    if (value === null) return 'string';
-    if (value instanceof Date) return 'date';
-    return 'string'; // default fallback
+  private async secretsSet(name: string, value: string, opts?: { description?: string }): Promise<void> {
+    // Note: secrets set functionality not yet implemented in backend
+    throw new PluginError('Setting secrets not yet implemented', 'NOT_IMPLEMENTED', 'host');
   }
+
+  private async secretsDelete(name: string): Promise<void> {
+    // Note: secrets delete functionality not yet implemented in backend
+    throw new PluginError('Deleting secrets not yet implemented', 'NOT_IMPLEMENTED', 'host');
+  }
+
 }
