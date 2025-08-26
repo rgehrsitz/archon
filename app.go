@@ -47,6 +47,11 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	
+	// Initialize contexts for all services that need them
+	a.projectService.SetContext(ctx)
+	a.nodeService.SetContext(ctx)
+	a.loggingService.SetContext(ctx)
 }
 
 // shutdown is called when the app is quitting.

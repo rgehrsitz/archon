@@ -49,6 +49,7 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
+    "svelte-spa-router": "^4.0.1",
     "tailwindcss": "^4.1.4"
   }
 }

@@ -6,24 +6,25 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  /* Archon Light Theme - based on UI blueprint colors */
+  --background: 255 255 255;              /* #FFFFFF - white background */
+  --foreground: 15 18 20;                 /* #0F1214 - dark text */
+  --card: 255 255 255;                    /* #FFFFFF - white cards */
+  --card-foreground: 15 18 20;            /* #0F1214 - dark text on cards */
+  --popover: 255 255 255;                 /* #FFFFFF - white popovers */
+  --popover-foreground: 15 18 20;         /* #0F1214 - dark text in popovers */
+  --primary: 42 90 218;                   /* #2A5ADA - cobalt primary */
+  --primary-foreground: 255 255 255;      /* #FFFFFF - white text on cobalt */
+  --secondary: 246 248 250;               /* #F6F8FA - soft gray panels */
+  --secondary-foreground: 15 18 20;       /* #0F1214 - dark text on secondary */
+  --muted: 246 248 250;                   /* #F6F8FA - muted backgrounds */
+  --muted-foreground: 102 112 133;        /* #667085 - muted text */
+  --accent: 42 90 218;                    /* #2A5ADA - cobalt accent */
+  --accent-foreground: 255 255 255;       /* #FFFFFF - white text on accent */
+  --destructive: 239 68 68;               /* #EF4444 - red for destructive actions */
+  --border: 229 231 235;                  /* #E5E7EB - light gray borders */
+  --input: 229 231 235;                   /* #E5E7EB - input borders */
+  --ring: 42 90 218;                      /* #2A5ADA - cobalt focus rings */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -40,24 +41,25 @@
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
+  /* Archon Dark Theme - based on UI blueprint colors */
+  --background: 18 20 23;                 /* #121417 - charcoal background */
+  --foreground: 225 229 234;              /* #E1E5EA - light text */
+  --card: 27 31 36;                       /* #1B1F24 - dark cards */
+  --card-foreground: 225 229 234;         /* #E1E5EA - light text on cards */
+  --popover: 27 31 36;                    /* #1B1F24 - dark popovers */
+  --popover-foreground: 225 229 234;      /* #E1E5EA - light text in popovers */
+  --primary: 91 140 255;                  /* #5B8CFF - cobalt highlight (brighter for dark mode) */
+  --primary-foreground: 15 18 20;         /* #0F1214 - dark text on cobalt chips */
+  --secondary: 27 31 36;                  /* #1B1F24 - dark gray panels */
+  --secondary-foreground: 225 229 234;    /* #E1E5EA - light text on secondary */
+  --muted: 27 31 36;                      /* #1B1F24 - muted backgrounds */
+  --muted-foreground: 160 165 170;        /* #A0A5AA - muted text */
+  --accent: 91 140 255;                   /* #5B8CFF - cobalt accent (brighter) */
+  --accent-foreground: 15 18 20;          /* #0F1214 - dark text on accent */
+  --destructive: 220 38 127;              /* Adjusted red for dark mode */
+  --border: 44 49 56;                     /* #2C3138 - dark borders */
+  --input: 44 49 56;                      /* #2C3138 - input borders */
+  --ring: 91 140 255;                     /* #5B8CFF - cobalt focus rings */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -78,24 +80,24 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-background: rgb(var(--background));
+  --color-foreground: rgb(var(--foreground));
+  --color-card: rgb(var(--card));
+  --color-card-foreground: rgb(var(--card-foreground));
+  --color-popover: rgb(var(--popover));
+  --color-popover-foreground: rgb(var(--popover-foreground));
+  --color-primary: rgb(var(--primary));
+  --color-primary-foreground: rgb(var(--primary-foreground));
+  --color-secondary: rgb(var(--secondary));
+  --color-secondary-foreground: rgb(var(--secondary-foreground));
+  --color-muted: rgb(var(--muted));
+  --color-muted-foreground: rgb(var(--muted-foreground));
+  --color-accent: rgb(var(--accent));
+  --color-accent-foreground: rgb(var(--accent-foreground));
+  --color-destructive: rgb(var(--destructive));
+  --color-border: rgb(var(--border));
+  --color-input: rgb(var(--input));
+  --color-ring: rgb(var(--ring));
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

@@ -11,17 +11,24 @@ import (
 // NodeService provides Wails-bound node operations
 type NodeService struct {
 	projectService *ProjectService
+	ctx            context.Context
 }
 
 // NewNodeService creates a new node service
 func NewNodeService(projectService *ProjectService) *NodeService {
 	return &NodeService{
 		projectService: projectService,
+		ctx:            context.Background(),
 	}
 }
 
+// SetContext sets the context for the service (called by Wails during initialization)
+func (s *NodeService) SetContext(ctx context.Context) {
+	s.ctx = ctx
+}
+
 // CreateNode creates a new node under the specified parent
-func (s *NodeService) CreateNode(ctx context.Context, req *types.CreateNodeRequest) (*types.Node, errors.Envelope) {
+func (s *NodeService) CreateNode(req *types.CreateNodeRequest) (*types.Node, errors.Envelope) {
 	if s.projectService != nil && s.projectService.readOnly {
 		return nil, errors.New(errors.ErrSchemaVersion, "Project is opened read-only due to newer schema; writes are disabled")
 	}
@@ -42,7 +49,7 @@ func (s *NodeService) CreateNode(ctx context.Context, req *types.CreateNodeReque
 }
 
 // GetNode retrieves a node by ID
-func (s *NodeService) GetNode(ctx context.Context, nodeID string) (*types.Node, errors.Envelope) {
+func (s *NodeService) GetNode(nodeID string) (*types.Node, errors.Envelope) {
 	nodeStore, err := s.getNodeStore()
 	if err.Code != "" {
 		return nil, err
@@ -60,7 +67,7 @@ func (s *NodeService) GetNode(ctx context.Context, nodeID string) (*types.Node, 
 }
 
 // UpdateNode updates an existing node
-func (s *NodeService) UpdateNode(ctx context.Context, req *types.UpdateNodeRequest) (*types.Node, errors.Envelope) {
+func (s *NodeService) UpdateNode(req *types.UpdateNodeRequest) (*types.Node, errors.Envelope) {
 	if s.projectService != nil && s.projectService.readOnly {
 		return nil, errors.New(errors.ErrSchemaVersion, "Project is opened read-only due to newer schema; writes are disabled")
 	}
@@ -81,7 +88,7 @@ func (s *NodeService) UpdateNode(ctx context.Context, req *types.UpdateNodeReque
 }
 
 // DeleteNode deletes a node and all its children
-func (s *NodeService) DeleteNode(ctx context.Context, nodeID string) errors.Envelope {
+func (s *NodeService) DeleteNode(nodeID string) errors.Envelope {
 	if s.projectService != nil && s.projectService.readOnly {
 		return errors.New(errors.ErrSchemaVersion, "Project is opened read-only due to newer schema; writes are disabled")
 	}
@@ -102,7 +109,7 @@ func (s *NodeService) DeleteNode(ctx context.Context, nodeID string) errors.Enve
 }
 
 // MoveNode moves a node to a new parent
-func (s *NodeService) MoveNode(ctx context.Context, req *types.MoveNodeRequest) errors.Envelope {
+func (s *NodeService) MoveNode(req *types.MoveNodeRequest) errors.Envelope {
 	if s.projectService != nil && s.projectService.readOnly {
 		return errors.New(errors.ErrSchemaVersion, "Project is opened read-only due to newer schema; writes are disabled")
 	}
@@ -123,7 +130,7 @@ func (s *NodeService) MoveNode(ctx context.Context, req *types.MoveNodeRequest) 
 }
 
 // ReorderChildren reorders the children of a parent node
-func (s *NodeService) ReorderChildren(ctx context.Context, req *types.ReorderChildrenRequest) errors.Envelope {
+func (s *NodeService) ReorderChildren(req *types.ReorderChildrenRequest) errors.Envelope {
 	if s.projectService != nil && s.projectService.readOnly {
 		return errors.New(errors.ErrSchemaVersion, "Project is opened read-only due to newer schema; writes are disabled")
 	}
@@ -144,7 +151,7 @@ func (s *NodeService) ReorderChildren(ctx context.Context, req *types.ReorderChi
 }
 
 // ListChildren returns all direct children of a node
-func (s *NodeService) ListChildren(ctx context.Context, nodeID string) ([]*types.Node, errors.Envelope) {
+func (s *NodeService) ListChildren(nodeID string) ([]*types.Node, errors.Envelope) {
 	nodeStore, err := s.getNodeStore()
 	if err.Code != "" {
 		return nil, err
@@ -162,7 +169,7 @@ func (s *NodeService) ListChildren(ctx context.Context, nodeID string) ([]*types
 }
 
 // GetNodePath returns the path from root to the specified node
-func (s *NodeService) GetNodePath(ctx context.Context, nodeID string) ([]*types.Node, errors.Envelope) {
+func (s *NodeService) GetNodePath(nodeID string) ([]*types.Node, errors.Envelope) {
 	nodeStore, err := s.getNodeStore()
 	if err.Code != "" {
 		return nil, err
@@ -180,7 +187,7 @@ func (s *NodeService) GetNodePath(ctx context.Context, nodeID string) ([]*types.
 }
 
 // GetRootNode returns the root node of the current project
-func (s *NodeService) GetRootNode(ctx context.Context) (*types.Node, errors.Envelope) {
+func (s *NodeService) GetRootNode() (*types.Node, errors.Envelope) {
 	projectStore, currentPath := s.projectService.GetCurrentProject()
 	if projectStore == nil {
 		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
@@ -207,7 +214,7 @@ func (s *NodeService) GetRootNode(ctx context.Context) (*types.Node, errors.Enve
 }
 
 // SetProperty sets a property on a node
-func (s *NodeService) SetProperty(ctx context.Context, nodeID, key string, value any, typeHint string) errors.Envelope {
+func (s *NodeService) SetProperty(nodeID, key string, value any, typeHint string) errors.Envelope {
 	if s.projectService != nil && s.projectService.readOnly {
 		return errors.New(errors.ErrSchemaVersion, "Project is opened read-only due to newer schema; writes are disabled")
 	}
@@ -253,7 +260,7 @@ func (s *NodeService) SetProperty(ctx context.Context, nodeID, key string, value
 }
 
 // DeleteProperty removes a property from a node
-func (s *NodeService) DeleteProperty(ctx context.Context, nodeID, key string) errors.Envelope {
+func (s *NodeService) DeleteProperty(nodeID, key string) errors.Envelope {
 	if s.projectService != nil && s.projectService.readOnly {
 		return errors.New(errors.ErrSchemaVersion, "Project is opened read-only due to newer schema; writes are disabled")
 	}

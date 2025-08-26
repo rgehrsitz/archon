@@ -18,13 +18,20 @@ import (
 // LoggingService provides Wails-bound logging operations
 type LoggingService struct {
 	projectService *ProjectService
+	ctx            context.Context
 }
 
 // NewLoggingService creates a new logging service
 func NewLoggingService(projectService *ProjectService) *LoggingService {
 	return &LoggingService{
 		projectService: projectService,
+		ctx:            context.Background(),
 	}
+}
+
+// SetContext sets the context for the service (called by Wails during initialization)
+func (s *LoggingService) SetContext(ctx context.Context) {
+	s.ctx = ctx
 }
 
 // LogEntry represents a frontend log entry
@@ -48,7 +55,7 @@ type LoggingConfig struct {
 }
 
 // LogMessage logs a message from the frontend
-func (s *LoggingService) LogMessage(ctx context.Context, entry LogEntry) errors.Envelope {
+func (s *LoggingService) LogMessage(entry LogEntry) errors.Envelope {
 	logger := logging.GetLogger()
 	
 	// Add frontend context
@@ -83,7 +90,7 @@ func (s *LoggingService) LogMessage(ctx context.Context, entry LogEntry) errors.
 }
 
 // GetLoggingConfig returns the current logging configuration
-func (s *LoggingService) GetLoggingConfig(ctx context.Context) (*LoggingConfig, errors.Envelope) {
+func (s *LoggingService) GetLoggingConfig() (*LoggingConfig, errors.Envelope) {
 	logger := logging.GetLogger()
 	config := logger.GetConfig()
 	
@@ -100,7 +107,7 @@ func (s *LoggingService) GetLoggingConfig(ctx context.Context) (*LoggingConfig, 
 }
 
 // SetLogLevel updates the current logging level
-func (s *LoggingService) SetLogLevel(ctx context.Context, level string) errors.Envelope {
+func (s *LoggingService) SetLogLevel(level string) errors.Envelope {
 	var logLevel logging.LogLevel
 	switch level {
 	case "trace":
@@ -133,13 +140,13 @@ func (s *LoggingService) SetLogLevel(ctx context.Context, level string) errors.E
 }
 
 // GetLogHealth returns health information about the logging system
-func (s *LoggingService) GetLogHealth(ctx context.Context) (map[string]interface{}, errors.Envelope) {
+func (s *LoggingService) GetLogHealth() (map[string]interface{}, errors.Envelope) {
 	health := logging.Health()
 	return health, errors.Envelope{}
 }
 
 // GetRecentLogs returns recent log entries (if available)
-func (s *LoggingService) GetRecentLogs(ctx context.Context, limit int) ([]map[string]interface{}, errors.Envelope) {
+func (s *LoggingService) GetRecentLogs(limit int) ([]map[string]interface{}, errors.Envelope) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -248,7 +255,7 @@ func (s *LoggingService) GetRecentLogs(ctx context.Context, limit int) ([]map[st
 }
 
 // UpdateLoggingConfig updates the logging configuration
-func (s *LoggingService) UpdateLoggingConfig(ctx context.Context, updates map[string]interface{}) errors.Envelope {
+func (s *LoggingService) UpdateLoggingConfig(updates map[string]interface{}) errors.Envelope {
     if s.projectService.currentProject == nil {
         return errors.New(errors.ErrNoProject, "No project is currently open")
     }
@@ -279,7 +286,7 @@ func (s *LoggingService) UpdateLoggingConfig(ctx context.Context, updates map[st
 }
 
 // GetLogLevels returns available log levels
-func (s *LoggingService) GetLogLevels(ctx context.Context) ([]string, errors.Envelope) {
+func (s *LoggingService) GetLogLevels() ([]string, errors.Envelope) {
 	levels := []string{
 		"trace",
 		"debug", 
@@ -293,7 +300,7 @@ func (s *LoggingService) GetLogLevels(ctx context.Context) ([]string, errors.Env
 }
 
 // InitializeProjectLogging initializes logging for a project
-func (s *LoggingService) InitializeProjectLogging(ctx context.Context, projectPath string) errors.Envelope {
+func (s *LoggingService) InitializeProjectLogging(projectPath string) errors.Envelope {
 	err := logging.InitializeFromEnvironment(projectPath)
 	if err != nil {
 		return errors.WrapError(errors.ErrStorageFailure, "Failed to initialize project logging", err)

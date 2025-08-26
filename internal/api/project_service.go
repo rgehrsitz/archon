@@ -18,15 +18,23 @@ type ProjectService struct {
 	currentProject *store.ProjectStore
 	currentPath    string
 	readOnly       bool
+	ctx            context.Context
 }
 
 // NewProjectService creates a new project service
 func NewProjectService() *ProjectService {
-	return &ProjectService{}
+	return &ProjectService{
+		ctx: context.Background(),
+	}
+}
+
+// SetContext sets the context for the service (called by Wails during initialization)
+func (s *ProjectService) SetContext(ctx context.Context) {
+	s.ctx = ctx
 }
 
 // CreateProject creates a new Archon project at the specified path
-func (s *ProjectService) CreateProject(ctx context.Context, path string, settings map[string]any) (*types.Project, errors.Envelope) {
+func (s *ProjectService) CreateProject(path string, settings map[string]any) (*types.Project, errors.Envelope) {
 	// Clean and validate path
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
@@ -63,7 +71,7 @@ func (s *ProjectService) CreateProject(ctx context.Context, path string, setting
 }
 
 // OpenProject opens an existing Archon project
-func (s *ProjectService) OpenProject(ctx context.Context, path string) (*types.Project, errors.Envelope) {
+func (s *ProjectService) OpenProject(path string) (*types.Project, errors.Envelope) {
 	// Clean and validate path
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
@@ -146,7 +154,7 @@ func (s *ProjectService) OpenProject(ctx context.Context, path string) (*types.P
 }
 
 // CloseProject closes the current project
-func (s *ProjectService) CloseProject(ctx context.Context) errors.Envelope {
+func (s *ProjectService) CloseProject() errors.Envelope {
 	s.currentProject = nil
 	s.currentPath = ""
 	s.readOnly = false
@@ -154,7 +162,7 @@ func (s *ProjectService) CloseProject(ctx context.Context) errors.Envelope {
 }
 
 // GetProjectInfo returns information about the current project
-func (s *ProjectService) GetProjectInfo(ctx context.Context) (map[string]any, errors.Envelope) {
+func (s *ProjectService) GetProjectInfo() (map[string]any, errors.Envelope) {
 	if s.currentProject == nil {
 		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
 	}
@@ -175,7 +183,7 @@ func (s *ProjectService) GetProjectInfo(ctx context.Context) (map[string]any, er
 }
 
 // UpdateProjectSettings updates the current project's settings
-func (s *ProjectService) UpdateProjectSettings(ctx context.Context, settings map[string]any) errors.Envelope {
+func (s *ProjectService) UpdateProjectSettings(settings map[string]any) errors.Envelope {
 	if s.currentProject == nil {
 		return errors.New(errors.ErrProjectNotFound, "No project currently open")
 	}
@@ -195,7 +203,7 @@ func (s *ProjectService) UpdateProjectSettings(ctx context.Context, settings map
 }
 
 // ProjectExists checks if a project exists at the given path
-func (s *ProjectService) ProjectExists(ctx context.Context, path string) (bool, errors.Envelope) {
+func (s *ProjectService) ProjectExists(path string) (bool, errors.Envelope) {
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
 		return false, errors.WrapError(errors.ErrInvalidPath, "Invalid project path", err)
@@ -210,7 +218,7 @@ func (s *ProjectService) ProjectExists(ctx context.Context, path string) (bool, 
 }
 
 // GetCurrentProjectPath returns the path of the currently open project
-func (s *ProjectService) GetCurrentProjectPath(ctx context.Context) (string, errors.Envelope) {
+func (s *ProjectService) GetCurrentProjectPath() (string, errors.Envelope) {
 	if s.currentProject == nil {
 		return "", errors.New(errors.ErrProjectNotFound, "No project currently open")
 	}
@@ -219,7 +227,7 @@ func (s *ProjectService) GetCurrentProjectPath(ctx context.Context) (string, err
 }
 
 // IsProjectOpen returns true if a project is currently open
-func (s *ProjectService) IsProjectOpen(ctx context.Context) bool {
+func (s *ProjectService) IsProjectOpen() bool {
 	return s.currentProject != nil
 }
 
