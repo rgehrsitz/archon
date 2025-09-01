@@ -49,7 +49,7 @@ func setupProjectAndPluginService(t *testing.T, settings map[string]any) (string
 
     // Create project with provided settings
     ps := NewProjectService()
-    if _, env := ps.CreateProject(context.Background(), projectPath, settings); env.Code != "" {
+    if _, env := ps.CreateProject(projectPath, settings); env.Code != "" {
         t.Fatalf("CreateProject failed: %+v", env)
     }
 
@@ -143,7 +143,7 @@ func TestPluginService_SecretsPermissionsAndRedaction(t *testing.T) {
     }
 
     // 3) Toggle policy to return values; re-init and re-declare/grant
-    if env := ps.UpdateProjectSettings(ctx, map[string]any{
+    if env := ps.UpdateProjectSettings(map[string]any{
         "secretsPolicy": map[string]any{"returnValues": true},
     }); env.Code != "" {
         t.Fatalf("UpdateProjectSettings failed: %+v", env)

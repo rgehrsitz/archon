@@ -1,10 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { Button } from '$lib/components/ui/button';
-  import { Input } from '$lib/components/ui/input';
-  import { Badge } from '$lib/components/ui/badge';
+  import { Button } from '../ui/button/index.js';
+  import { Input } from '../ui/input/index.js';
   
-  export let projectId: string;
+  export const projectId: string = undefined!;
   export let viewMode: 'miller' | 'tree' = 'miller';
   
   const dispatch = createEventDispatcher<{
@@ -35,14 +34,14 @@
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
       handleSearch();
-    } else if (event.key === '/' && event.target !== event.currentTarget?.querySelector('input')) {
+    } else if (event.key === '/' && event.target !== (event.currentTarget as Document)?.querySelector('input')) {
       event.preventDefault();
-      event.currentTarget?.querySelector('input')?.focus();
+      (event.currentTarget as Document)?.querySelector('input')?.focus();
     }
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="h-12 border-b bg-muted/30 px-4 flex items-center gap-4">
   <!-- Breadcrumbs -->
@@ -66,7 +65,7 @@
       bind:value={searchQuery}
       placeholder="Search nodes... (Press / to focus)"
       class="w-64 pr-8"
-      on:input={handleSearch}
+      oninput={handleSearch}
     />
     <kbd class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
       /

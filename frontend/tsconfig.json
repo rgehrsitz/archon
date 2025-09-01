@@ -17,6 +17,7 @@
     "checkJs": true,
     "isolatedModules": true,
     "paths": {
+      "$lib": ["src/lib"],
       "$lib/*": ["src/lib/*"],
       "$lib/components/*": ["src/lib/components/*"],
       "$lib/components/ui/*": ["src/lib/components/ui/*"],

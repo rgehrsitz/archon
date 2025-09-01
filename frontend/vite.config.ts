@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       $lib: resolve("./src/lib"),
+      "$lib/*": resolve("./src/lib/*"),
     },
   },
 });

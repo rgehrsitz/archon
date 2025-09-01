@@ -1,7 +1,6 @@
 package api
 
 import (
-    "context"
     "os"
     "path/filepath"
     "testing"
@@ -42,16 +41,16 @@ func TestOpenProject_NewerSchema_ReadOnlyAndNoBackup(t *testing.T) {
     seedProject(t, base, types.CurrentSchemaVersion+1)
 
     svc := NewProjectService()
-    proj, env := svc.OpenProject(context.Background(), base)
-    if env.Code != "" {
-        t.Fatalf("OpenProject returned error: %s - %s", env.Code, env.Message)
+    proj := svc.OpenProject(base)
+    if proj == nil {
+        t.Fatalf("OpenProject returned nil project")
     }
     if proj.SchemaVersion != types.CurrentSchemaVersion+1 {
         t.Fatalf("unexpected project schema: got %d", proj.SchemaVersion)
     }
 
     // Verify read-only flag is true via GetProjectInfo
-    info, env := svc.GetProjectInfo(context.Background())
+    info, env := svc.GetProjectInfo()
     if env.Code != "" {
         t.Fatalf("GetProjectInfo error: %s - %s", env.Code, env.Message)
     }
@@ -60,7 +59,7 @@ func TestOpenProject_NewerSchema_ReadOnlyAndNoBackup(t *testing.T) {
     }
 
     // Writes should be rejected
-    env = svc.UpdateProjectSettings(context.Background(), map[string]any{"k": "v"})
+    env = svc.UpdateProjectSettings(map[string]any{"k": "v"})
     if env.Code != errors.ErrSchemaVersion {
         t.Fatalf("expected ErrSchemaVersion on write in read-only mode, got: %s", env.Code)
     }
@@ -78,15 +77,15 @@ func TestOpenProject_EqualSchema_NoMigrationNoBackup(t *testing.T) {
     seedProject(t, base, types.CurrentSchemaVersion)
 
     svc := NewProjectService()
-    proj, env := svc.OpenProject(context.Background(), base)
-    if env.Code != "" {
-        t.Fatalf("OpenProject returned error: %s - %s", env.Code, env.Message)
+    proj := svc.OpenProject(base)
+    if proj == nil {
+        t.Fatalf("OpenProject returned nil project")
     }
     if proj.SchemaVersion != types.CurrentSchemaVersion {
         t.Fatalf("unexpected project schema: got %d", proj.SchemaVersion)
     }
 
-    info, env := svc.GetProjectInfo(context.Background())
+    info, env := svc.GetProjectInfo()
     if env.Code != "" {
         t.Fatalf("GetProjectInfo error: %s - %s", env.Code, env.Message)
     }
@@ -108,15 +107,15 @@ func TestOpenProject_OlderSchema_TriggersBackupAndMigration(t *testing.T) {
     seedProject(t, base, 0)
 
     svc := NewProjectService()
-    proj, env := svc.OpenProject(context.Background(), base)
-    if env.Code != "" {
-        t.Fatalf("OpenProject returned error: %s - %s", env.Code, env.Message)
+    proj := svc.OpenProject(base)
+    if proj == nil {
+        t.Fatalf("OpenProject returned nil project")
     }
     // After migration, schema should be current and project not read-only
     if proj.SchemaVersion != types.CurrentSchemaVersion {
         t.Fatalf("expected schema migrated to %d, got %d", types.CurrentSchemaVersion, proj.SchemaVersion)
     }
-    info, env := svc.GetProjectInfo(context.Background())
+    info, env := svc.GetProjectInfo()
     if env.Code != "" {
         t.Fatalf("GetProjectInfo error: %s - %s", env.Code, env.Message)
     }

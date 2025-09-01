@@ -2,7 +2,6 @@ package api
 
 import (
 	"compress/gzip"
-	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -83,7 +82,7 @@ func TestGetRecentLogs_RotationAware(t *testing.T) {
 	}
 
 	svc := &LoggingService{}
-	logs, env := svc.GetRecentLogs(context.Background(), 4)
+	logs, env := svc.GetRecentLogs(4)
 	if env.Code != "" {
 		t.Fatalf("GetRecentLogs error: %s - %s", env.Code, env.Message)
 	}

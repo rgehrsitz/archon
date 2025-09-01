@@ -2,7 +2,7 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import { GetRootNode, ListChildren } from '../../../../wailsjs/go/api/NodeService.js';
   
-  export let projectId: string;
+  export const projectId: string = undefined!;
   export let selectedNodeId: string | null = null;
   export let selectedNodePath: any[] = [];
   
