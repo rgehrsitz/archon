@@ -147,10 +147,12 @@
           <Button
             type="button"
             variant="outline"
-            on:click={handleSelectDirectory}
+            onclick={handleSelectDirectory}
             disabled={loading}
           >
-            Browse
+            {#snippet children()}
+              Browse
+            {/snippet}
           </Button>
         </div>
       </div>
@@ -186,21 +188,25 @@
       <Button
         type="button"
         variant="outline"
-        on:click={handleCancel}
+        onclick={handleCancel}
         disabled={loading}
       >
-        Cancel
+        {#snippet children()}
+          Cancel
+        {/snippet}
       </Button>
       <Button
         type="button"
-        on:click={handleCreate}
+        onclick={handleCreate}
         disabled={loading || !projectName.trim() || !projectPath.trim()}
       >
-        {#if loading}
-          Creating...
-        {:else}
-          Create Project
-        {/if}
+        {#snippet children()}
+          {#if loading}
+            Creating...
+          {:else}
+            Create Project
+          {/if}
+        {/snippet}
       </Button>
     </DialogFooter>
   </DialogContent>

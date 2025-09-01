@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/rgehrsitz/archon/internal/errors"
+	"github.com/rgehrsitz/archon/internal/logging"
 	"github.com/rgehrsitz/archon/internal/store"
 	"github.com/rgehrsitz/archon/internal/types"
 )
@@ -151,21 +152,23 @@ func (s *NodeService) ReorderChildren(req *types.ReorderChildrenRequest) errors.
 }
 
 // ListChildren returns all direct children of a node
-func (s *NodeService) ListChildren(nodeID string) ([]*types.Node, errors.Envelope) {
+func (s *NodeService) ListChildren(nodeID string) []*types.Node {
 	nodeStore, err := s.getNodeStore()
 	if err.Code != "" {
-		return nil, err
+		logging.GetLogger().Error().Str("nodeId", nodeID).Str("error", err.Message).Msg("Failed to get node store in ListChildren")
+		return nil
 	}
+	
+	logging.GetLogger().Debug().Str("nodeId", nodeID).Msg("Listing children")
 	
 	children, storeErr := nodeStore.ListChildren(nodeID)
 	if storeErr != nil {
-		if envelope, ok := storeErr.(errors.Envelope); ok {
-			return nil, envelope
-		}
-		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to list children", storeErr)
+		logging.GetLogger().Error().Err(storeErr).Str("nodeId", nodeID).Msg("Failed to list children")
+		return nil
 	}
 	
-	return children, errors.Envelope{}
+	logging.GetLogger().Debug().Str("nodeId", nodeID).Int("childCount", len(children)).Msg("Children retrieved successfully")
+	return children
 }
 
 // GetNodePath returns the path from root to the specified node
@@ -187,30 +190,30 @@ func (s *NodeService) GetNodePath(nodeID string) ([]*types.Node, errors.Envelope
 }
 
 // GetRootNode returns the root node of the current project
-func (s *NodeService) GetRootNode() (*types.Node, errors.Envelope) {
+func (s *NodeService) GetRootNode() *types.Node {
 	projectStore, currentPath := s.projectService.GetCurrentProject()
 	if projectStore == nil {
-		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
+		logging.GetLogger().Error().Msg("No project currently open in GetRootNode")
+		return nil
 	}
 	
 	project, err := projectStore.OpenProject()
 	if err != nil {
-		if envelope, ok := err.(errors.Envelope); ok {
-			return nil, envelope
-		}
-		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to get project info", err)
+		logging.GetLogger().Error().Err(err).Msg("Failed to get project info in GetRootNode")
+		return nil
 	}
+	
+	logging.GetLogger().Debug().Str("rootId", project.RootID).Msg("Getting root node")
 	
 	nodeStore := store.NewNodeStore(currentPath, s.projectService.currentProject.IndexManager)
 	rootNode, storeErr := nodeStore.GetNode(project.RootID)
 	if storeErr != nil {
-		if envelope, ok := storeErr.(errors.Envelope); ok {
-			return nil, envelope
-		}
-		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to get root node", storeErr)
+		logging.GetLogger().Error().Err(storeErr).Str("rootId", project.RootID).Msg("Failed to get root node")
+		return nil
 	}
 	
-	return rootNode, errors.Envelope{}
+	logging.GetLogger().Debug().Str("nodeId", rootNode.ID).Str("nodeName", rootNode.Name).Msg("Root node retrieved successfully")
+	return rootNode
 }
 
 // SetProperty sets a property on a node

@@ -14,9 +14,9 @@ export function GetNode(arg1:string):Promise<types.Node|errors.Envelope>;
 
 export function GetNodePath(arg1:string):Promise<Array<types.Node>|errors.Envelope>;
 
-export function GetRootNode():Promise<types.Node|errors.Envelope>;
+export function GetRootNode():Promise<types.Node>;
 
-export function ListChildren(arg1:string):Promise<Array<types.Node>|errors.Envelope>;
+export function ListChildren(arg1:string):Promise<Array<types.Node>>;
 
 export function MoveNode(arg1:types.MoveNodeRequest):Promise<errors.Envelope>;
 

@@ -18,6 +18,7 @@ type App struct {
 	snapshotService  *api.SnapshotService
 	diffService      *api.DiffService
 	pluginService    *api.PluginService
+	dialogService    *api.DialogService
 }
 
 // NewApp creates a new App application struct
@@ -30,6 +31,7 @@ func NewApp() *App {
 	snapshotService := api.NewSnapshotService(projectService)
 	diffService := api.NewDiffService(projectService)
 	pluginService := api.NewPluginService(*logging.GetLogger(), projectService)
+	dialogService := api.NewDialogService()
 
 	return &App{
 		projectService:   projectService,
@@ -40,6 +42,7 @@ func NewApp() *App {
 		snapshotService:  snapshotService,
 		diffService:      diffService,
 		pluginService:    pluginService,
+		dialogService:    dialogService,
 	}
 }
 
@@ -52,6 +55,7 @@ func (a *App) startup(ctx context.Context) {
 	a.projectService.SetContext(ctx)
 	a.nodeService.SetContext(ctx)
 	a.loggingService.SetContext(ctx)
+	a.dialogService.SetContext(ctx)
 }
 
 // shutdown is called when the app is quitting.
@@ -98,4 +102,9 @@ func (a *App) GetDiffService() *api.DiffService {
 // GetPluginService returns the plugin service for Wails binding
 func (a *App) GetPluginService() *api.PluginService {
 	return a.pluginService
+}
+
+// GetDialogService returns the dialog service for Wails binding
+func (a *App) GetDialogService() *api.DialogService {
+	return a.dialogService
 }

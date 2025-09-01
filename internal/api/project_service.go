@@ -71,71 +71,73 @@ func (s *ProjectService) CreateProject(path string, settings map[string]any) (*t
 }
 
 // OpenProject opens an existing Archon project
-func (s *ProjectService) OpenProject(path string) (*types.Project, errors.Envelope) {
+func (s *ProjectService) OpenProject(path string) *types.Project {
 	// Clean and validate path
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, errors.WrapError(errors.ErrInvalidPath, "Invalid project path", err)
+		logging.GetLogger().Error().Err(err).Str("path", path).Msg("Invalid project path in OpenProject")
+		return nil
 	}
+	
+	logging.GetLogger().Info().Str("path", cleanPath).Msg("Opening project")
 	
 	// Create project store (index, etc.)
 	projectStore, err := store.NewProjectStore(cleanPath)
 	if err != nil {
-		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to initialize project store", err)
+		logging.GetLogger().Error().Err(err).Str("path", cleanPath).Msg("Failed to initialize project store in OpenProject")
+		return nil
 	}
 
 	// Load project directly to inspect schema without validation blocking migration of legacy versions
 	loader := store.NewLoader(cleanPath)
 	project, loadErr := loader.LoadProject()
 	if loadErr != nil {
-		if envelope, ok := loadErr.(errors.Envelope); ok {
-			return nil, envelope
-		}
-		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to load project", loadErr)
+		logging.GetLogger().Error().Err(loadErr).Str("path", cleanPath).Msg("Failed to load project in OpenProject")
+		return nil
 	}
 
 	// Determine read-only vs migration path
 	s.readOnly = false
 	if project.SchemaVersion > types.CurrentSchemaVersion {
 		// Newer project than app: read-only per ADR-007. Validate via store.
+		logging.GetLogger().Info().Str("path", cleanPath).Int("project_version", project.SchemaVersion).Int("app_version", types.CurrentSchemaVersion).Msg("Opening newer project in read-only mode")
 		s.readOnly = true
 		opened, storeErr := projectStore.OpenProject()
 		if storeErr != nil {
-			if envelope, ok := storeErr.(errors.Envelope); ok {
-				return nil, envelope
-			}
-			return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to open project", storeErr)
+			logging.GetLogger().Error().Err(storeErr).Str("path", cleanPath).Msg("Failed to open newer project")
+			return nil
 		}
 		project = opened
 	} else if project.SchemaVersion < types.CurrentSchemaVersion {
 		// Older project: perform backup and run forward migrations before validation
+		logging.GetLogger().Info().Str("path", cleanPath).Int("project_version", project.SchemaVersion).Int("app_version", types.CurrentSchemaVersion).Msg("Migrating older project")
 		if _, err := migrate.CreateBackup(cleanPath); err != nil {
-			return nil, errors.WrapError(errors.ErrMigrationFailure, "Failed to create pre-migration backup", err)
+			logging.GetLogger().Error().Err(err).Str("path", cleanPath).Msg("Failed to create pre-migration backup")
+			return nil
 		}
 		if err := migrate.Run(cleanPath, project.SchemaVersion, types.CurrentSchemaVersion); err != nil {
-			return nil, errors.WrapError(errors.ErrMigrationFailure, "Migration failed", err)
+			logging.GetLogger().Error().Err(err).Str("path", cleanPath).Msg("Migration failed")
+			return nil
 		}
 		// Reload via ProjectStore to validate
 		opened, storeErr := projectStore.OpenProject()
 		if storeErr != nil {
-			if envelope, ok := storeErr.(errors.Envelope); ok {
-				return nil, envelope
-			}
-			return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to reload project post-migration", storeErr)
+			logging.GetLogger().Error().Err(storeErr).Str("path", cleanPath).Msg("Failed to reload project post-migration")
+			return nil
 		}
 		project = opened
 		// Verify schema version matches target after migration
 		if project.SchemaVersion != types.CurrentSchemaVersion {
-			return nil, errors.New(errors.ErrMigrationFailure, "Post-migration schema version mismatch")
+			logging.GetLogger().Error().Str("path", cleanPath).Int("expected", types.CurrentSchemaVersion).Int("actual", project.SchemaVersion).Msg("Post-migration schema version mismatch")
+			return nil
 		}
 	} else {
 		// Equal schema: open normally (validates)
+		logging.GetLogger().Info().Str("path", cleanPath).Msg("Opening current version project")
 		opened, storeErr := projectStore.OpenProject()
 		if storeErr != nil {
-			if envelope, ok := storeErr.(errors.Envelope); ok {
-				return nil, envelope
-			}
-			return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to open project", storeErr)
+			logging.GetLogger().Error().Err(storeErr).Str("path", cleanPath).Msg("Failed to open project")
+			return nil
 		}
 		project = opened
 	}
@@ -146,11 +148,11 @@ func (s *ProjectService) OpenProject(path string) (*types.Project, errors.Envelo
 
 	// Initialize logging for this project based on environment; non-fatal if it fails
 	if err := logging.InitializeFromEnvironment(cleanPath); err != nil {
-		// Wrap but do not fail project creation; frontend can still operate
-		// Optionally: surface as a warning envelope in future
+		logging.GetLogger().Warn().Err(err).Str("path", cleanPath).Msg("Failed to initialize project-specific logging")
 	}
 	
-	return project, errors.Envelope{}
+	logging.GetLogger().Info().Str("path", cleanPath).Str("rootId", project.RootID).Int("schemaVersion", project.SchemaVersion).Msg("Project opened successfully")
+	return project
 }
 
 // CloseProject closes the current project
@@ -203,18 +205,23 @@ func (s *ProjectService) UpdateProjectSettings(settings map[string]any) errors.E
 }
 
 // ProjectExists checks if a project exists at the given path
-func (s *ProjectService) ProjectExists(path string) (bool, errors.Envelope) {
+func (s *ProjectService) ProjectExists(path string) bool {
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
-		return false, errors.WrapError(errors.ErrInvalidPath, "Invalid project path", err)
+		logging.GetLogger().Error().Err(err).Str("path", path).Msg("Invalid project path in ProjectExists")
+		return false
 	}
 	
 	projectStore, err := store.NewProjectStore(cleanPath)
 	if err != nil {
-		return false, errors.WrapError(errors.ErrStorageFailure, "Failed to initialize project store", err)
+		logging.GetLogger().Error().Err(err).Str("path", cleanPath).Msg("Failed to initialize project store in ProjectExists")
+		return false
 	}
 	defer projectStore.Close()
-	return projectStore.ProjectExists(), errors.Envelope{}
+	
+	exists := projectStore.ProjectExists()
+	logging.GetLogger().Debug().Str("path", cleanPath).Bool("exists", exists).Msg("Project exists check")
+	return exists
 }
 
 // GetCurrentProjectPath returns the path of the currently open project

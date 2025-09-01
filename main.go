@@ -30,6 +30,7 @@ func main() {
 			app.projectService,
 			app.nodeService,
 			app.loggingService,
+			app.dialogService,
 			// TODO: Add other services as they are implemented
 		},
 	})

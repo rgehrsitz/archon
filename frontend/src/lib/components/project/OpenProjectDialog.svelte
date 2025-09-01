@@ -5,6 +5,7 @@
   import { Input } from '$lib/components/ui/input';
   import { Label } from '$lib/components/ui/label';
   import { OpenProject, ProjectExists } from '../../../../wailsjs/go/api/ProjectService.js';
+  import { OpenDirectoryDialog } from '../../../../wailsjs/go/api/DialogService.js';
   
   export let open = false;
   
@@ -19,15 +20,16 @@
   let validating = false;
   
   async function handleSelectDirectory() {
+    console.log('Browse button clicked!');
     try {
-      // For now, use prompt until we implement proper file dialog
-      const path = prompt('Enter project directory path:');
-      if (path) {
-        projectPath = path;
-        await validateProject(path);
+      const selectedPath = await OpenDirectoryDialog();
+      if (selectedPath && selectedPath.trim()) {
+        projectPath = selectedPath.trim();
+        await validateProject(projectPath);
       }
     } catch (err) {
-      error = `Failed to select directory: ${err}`;
+      console.error('Error opening directory dialog:', err);
+      error = `Failed to open directory dialog: ${err}`;
     }
   }
   
@@ -38,12 +40,16 @@
     error = '';
     
     try {
+      console.log('Validating project at path:', path);
       // Use Wails-generated binding to check if project exists
       const exists = await ProjectExists(path);
+      console.log('ProjectExists result:', exists);
+      
       if (!exists) {
         error = 'No Archon project found at this location';
       }
     } catch (err) {
+      console.error('Validation error:', err);
       error = `Failed to validate project: ${err}`;
     } finally {
       validating = false;
@@ -60,9 +66,12 @@
     error = '';
     
     try {
+      console.log('Opening project at path:', projectPath);
       // Use Wails-generated binding to open project
-      const project = await OpenProject(projectPath);
-      dispatch('opened', { path: projectPath, project });
+      const result = await OpenProject(projectPath);
+      console.log('OpenProject result:', result);
+      
+      dispatch('opened', { path: projectPath, project: result });
       
       // Reset form
       projectPath = '';
@@ -70,6 +79,7 @@
       open = false;
       
     } catch (err) {
+      console.error('Open project error:', err);
       error = `Failed to open project: ${err}`;
     } finally {
       loading = false;
@@ -122,10 +132,12 @@
           <Button
             type="button"
             variant="outline"
-            on:click={handleSelectDirectory}
+            onclick={handleSelectDirectory}
             disabled={loading}
           >
-            Browse
+            {#snippet children()}
+              Browse
+            {/snippet}
           </Button>
         </div>
         {#if validating}
@@ -163,22 +175,27 @@
       <Button
         type="button"
         variant="outline"
-        on:click={handleCancel}
+        onclick={handleCancel}
         disabled={loading}
       >
-        Cancel
+        {#snippet children()}
+          Cancel
+        {/snippet}
       </Button>
       <Button
         type="button"
-        on:click={handleOpen}
+        onclick={handleOpen}
         disabled={loading || !projectPath.trim() || !!error || validating}
       >
-        {#if loading}
-          Opening...
-        {:else}
-          Open Project
-        {/if}
+        {#snippet children()}
+          {#if loading}
+            Opening...
+          {:else}
+            Open Project
+          {/if}
+        {/snippet}
       </Button>
     </DialogFooter>
   </DialogContent>
 </Dialog>
+

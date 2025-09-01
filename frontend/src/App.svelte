@@ -5,7 +5,7 @@
   // Import routes
   import Welcome from './routes/Welcome.svelte';
   import Dashboard from './routes/project/Dashboard.svelte';
-  import Workbench from './routes/project/Workbench.svelte';
+  import Workbench from './routes/project/[id]/workbench/+page.svelte';
   import History from './routes/project/History.svelte';
   import Diff from './routes/project/Diff.svelte';
   import Merge from './routes/project/Merge.svelte';

@@ -48,10 +48,10 @@
       ...recentProjects.slice(0, 4) // Keep only 5 recent projects
     ];
     
-    // Navigate to the project dashboard
+    // Navigate to the workbench to start working
     // Extract project ID from path or use a hash of the path for now
     const projectId = path.split('/').pop() || 'project';
-    push(`/project/${projectId}/dashboard`);
+    push(`/project/${projectId}/workbench`);
   }
   
   function handleProjectOpened(event: CustomEvent) {
@@ -72,15 +72,15 @@
       recentProjects = [projectEntry, ...recentProjects.slice(0, 4)];
     }
     
-    // Navigate to the project dashboard
+    // Navigate to the workbench to start working
     const projectId = path.split('/').pop() || 'project';
-    push(`/project/${projectId}/dashboard`);
+    push(`/project/${projectId}/workbench`);
   }
   
   function openRecentProject(project: any) {
     console.log('Opening recent project:', project);
     const projectId = project.path.split('/').pop() || 'project';
-    push(`/project/${projectId}/dashboard`);
+    push(`/project/${projectId}/workbench`);
   }
   
   function handleCloneProject() {

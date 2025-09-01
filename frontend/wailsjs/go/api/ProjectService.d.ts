@@ -17,9 +17,9 @@ export function GetProjectInfo():Promise<Record<string, any>|errors.Envelope>;
 
 export function IsProjectOpen():Promise<boolean>;
 
-export function OpenProject(arg1:string):Promise<types.Project|errors.Envelope>;
+export function OpenProject(arg1:string):Promise<types.Project>;
 
-export function ProjectExists(arg1:string):Promise<boolean|errors.Envelope>;
+export function ProjectExists(arg1:string):Promise<boolean>;
 
 export function SetContext(arg1:context.Context):Promise<void>;
 
