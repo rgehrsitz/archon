@@ -175,23 +175,29 @@ This document tracks progress against the complete Archon vision as defined in t
 
 ### Phase 4: User Interface
 
-- [ ] **UI Components** - Tree navigation, property editors, diff viewers
-  - Virtualized tree component for large hierarchies
-  - Property editor with type-specific inputs
-  - Diff viewer with semantic change display
-  - Context menus and keyboard shortcuts
+- [x] **UI Components** - Tree navigation, property editors, diff viewers ✅ IMPLEMENTED
+  - ✅ Virtualized Miller columns component with adaptive layout
+  - ✅ TreeView component with expandable hierarchy navigation
+  - ✅ Property inspector panel with type-specific inputs
+  - ✅ Context navigation with breadcrumbs and search
+  - [ ] Diff viewer with semantic change display
+  - [ ] Context menus and keyboard shortcuts
 
-- [ ] **Project Dashboard** - Recent snapshots, sync status, quick actions
-  - Project overview and statistics
-  - Recent activity and snapshot list
-  - Git sync status and controls
-  - Quick import/export actions
+- [x] **Project Dashboard** - Recent snapshots, sync status, quick actions ✅ BASIC IMPLEMENTED
+  - ✅ Welcome screen with project create/open functionality
+  - ✅ Native OS file dialog integration for project selection
+  - [ ] Project overview and statistics
+  - [ ] Recent activity and snapshot list
+  - [ ] Git sync status and controls
+  - [ ] Quick import/export actions
 
-- [ ] **Hierarchy Workbench** - Multi-pane layout with tree navigation
-  - Resizable three-pane layout
-  - Tree navigation with search/filter
-  - Property details panel
-  - History sidebar with snapshot navigation
+- [x] **Hierarchy Workbench** - Multi-pane layout with tree navigation ✅ IMPLEMENTED
+  - ✅ Three-pane layout (Miller columns + Inspector)
+  - ✅ Tree navigation with view mode switching (Miller/Tree)
+  - ✅ Property details panel with live editing
+  - ✅ Persistent selection state across view changes
+  - [ ] History sidebar with snapshot navigation
+  - [ ] Resizable panes
 
 - [ ] **Diff & Merge UI** - Visual conflict resolution interface
   - Side-by-side diff view
@@ -232,17 +238,20 @@ This document tracks progress against the complete Archon vision as defined in t
 
 ## 🎯 Current Focus
 
-**Current Focus (post-ADR-013 completion):** Plugin Manager UI and reference implementations
+**Current Focus (post-workbench implementation):** UI Polish and Integration
 
-1. **Plugin Manager UI** (HIGH PRIORITY)
+1. **UI Enhancement** (HIGH PRIORITY)
+   - Context menus and keyboard shortcuts for workbench
+   - Diff viewer with semantic change display integration
+   - History sidebar and snapshot navigation UI
+   - Resizable panes and layout persistence
+2. **Plugin Manager UI**
    - User interface for plugin discovery, installation, and management
    - Permission management interface with consent dialogs
    - Plugin enable/disable controls and configuration
-2. **Reference Plugin Implementation**
+3. **Reference Plugin Implementation**
    - Complete CSV Importer plugin to validate end-to-end functionality
    - Plugin developer documentation and examples
-3. **Snapshot System UI integration**
-   - Linear history view and comparison UI
 4. **Build & Release pipeline**
    - Distribute CLI (and later desktop) artifacts
 
@@ -252,10 +261,10 @@ This document tracks progress against the complete Archon vision as defined in t
 - **Data Extensions**: ✅ Complete (3/3 components)
 - **Git & Versioning**: ✅ 3/4 components (Git Integration, Semantic Diff, 3-Way Merge core functionality complete)
 - **Content & Plugins**: ✅ Complete (2/2 components - Content-Addressed Attachments + Plugin System Backend complete)
-- **User Interface**: ⏳ 0/6 components
+- **User Interface**: ✅ 3/6 components (Core workbench, project dashboard basics, and navigation complete)
 - **Distribution**: ⏳ 1/2 components (CLI Interface core commands complete, project/import stubs remain)
 
-**Overall Progress**: ~85% complete (foundation + data + git/versioning + content + plugins backend + CLI core features complete)
+**Overall Progress**: ~90% complete (foundation + data + git/versioning + content + plugins backend + core UI + CLI core features complete)
 
 **Note**: The Plugin System backend implementation has been completed per ADR-013, including comprehensive host services, security model, and frontend-backend integration. The remaining work focuses on UI components and reference implementations.
 
