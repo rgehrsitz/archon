@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { Input } from '$lib/components/ui/input';
-  import { Label } from '$lib/components/ui/label';
-  import { Textarea } from '$lib/components/ui/textarea';
-  import { Button } from '$lib/components/ui/button';
-  import { Badge } from '$lib/components/ui/badge';
-  import { Separator } from '$lib/components/ui/separator';
+  import { Input } from '../ui/input/index.js';
+  import { Label } from '../ui/label/index.js';
+  import { Textarea } from '../ui/textarea/index.js';
+  import { Button } from '../ui/button/index.js';
+  import { Badge } from '../ui/badge/index.js';
+  import { Separator } from '../ui/separator/index.js';
   
   export let selectedNode: any = null;
   let className = '';
@@ -26,7 +26,7 @@
     
     editedName = selectedNode.name || '';
     editedDescription = selectedNode.description || '';
-    editedProperties = { ...selectedNode.properties } || {};
+    editedProperties = { ...(selectedNode.properties || {}) };
     isDirty = false;
   }
   
@@ -108,7 +108,7 @@
               id="node-name"
               bind:value={editedName}
               placeholder="Node name"
-              on:input={markDirty}
+              oninput={markDirty}
               class="mt-1"
             />
           </div>
@@ -119,7 +119,7 @@
               id="node-description"
               bind:value={editedDescription}
               placeholder="Describe this node..."
-              on:input={markDirty}
+              oninput={markDirty}
               class="mt-1 min-h-20"
             />
           </div>
@@ -167,7 +167,7 @@
                   <Input
                     bind:value={prop.value}
                     placeholder="Value..."
-                    on:input={markDirty}
+                    oninput={markDirty}
                     class="text-sm"
                   />
                 </div>
