@@ -3,6 +3,8 @@
   import { GetRootNode, ListChildren } from '../../../../wailsjs/go/api/NodeService.js';
   
   export let projectId: string;
+  export let selectedNodeId: string | null = null;
+  export let selectedNodePath: any[] = [];
   
   const dispatch = createEventDispatcher<{
     nodeSelect: { node: any, path: any[] };
@@ -22,8 +24,9 @@
   }
   
   let rootNodes: TreeNode[] = [];
-  let selectedNodeId: string | null = null;
   let loading = true;
+  let isExpandingFromPath = false;
+  let lastProcessedPath: string = '';
   
   // Helper function to transform backend nodes to frontend format
   function transformNode(node: any, level: number = 0): TreeNode {
@@ -43,6 +46,58 @@
   onMount(async () => {
     await loadRootNodes();
   });
+  
+  // Expand nodes when selectedNodePath changes (e.g., when switching from MillerColumns)
+  $: {
+    const currentPathKey = selectedNodePath.map(n => n.id).join('->');
+    if (selectedNodePath.length > 0 && 
+        rootNodes.length > 0 && 
+        !isExpandingFromPath && 
+        currentPathKey !== lastProcessedPath) {
+      lastProcessedPath = currentPathKey;
+      expandNodesFromPath(selectedNodePath);
+    }
+  }
+  
+  async function expandNodesFromPath(path: any[]) {
+    if (path.length === 0 || isExpandingFromPath) return;
+    
+    isExpandingFromPath = true;
+    
+    // Helper function to find and expand a node by ID
+    async function findAndExpandNode(nodes: TreeNode[], nodeId: string): Promise<TreeNode | null> {
+      for (const node of nodes) {
+        if (node.id === nodeId) {
+          // Found the node, expand it if it has children
+          if (node.hasChildren && !node.expanded) {
+            await loadChildren(node);
+            node.expanded = true;
+          }
+          return node;
+        }
+        
+        // Search in children if this node is expanded
+        if (node.expanded && node.children) {
+          const found = await findAndExpandNode(node.children, nodeId);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+    
+    try {
+      // Expand each node in the path (except the last one, which is just selected)
+      for (let i = 0; i < path.length - 1; i++) {
+        const nodeToExpand = path[i];
+        await findAndExpandNode(rootNodes, nodeToExpand.id);
+      }
+      rootNodes = rootNodes; // Trigger reactivity once at the end
+    } catch (error) {
+      console.error('Failed to expand nodes from path:', error);
+    } finally {
+      isExpandingFromPath = false;
+    }
+  }
   
   async function loadRootNodes() {
     loading = true;
@@ -78,8 +133,6 @@
   }
   
   async function handleNodeClick(node: TreeNode) {
-    selectedNodeId = node.id;
-    
     if (node.hasChildren) {
       if (!node.expanded) {
         // Expand the node

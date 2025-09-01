@@ -3,12 +3,6 @@
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import { Badge } from '$lib/components/ui/badge';
-  import { 
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-  } from '$lib/components/ui/select';
   
   export let projectId: string;
   export let viewMode: 'miller' | 'tree' = 'miller';
@@ -27,9 +21,9 @@
     { id: 'bench-3', name: 'Bench 3' }
   ];
   
-  function handleViewModeChange(value: string) {
-    const mode = value as 'miller' | 'tree';
-    dispatch('viewModeChange', { mode });
+  function toggleViewMode() {
+    const newMode = viewMode === 'miller' ? 'tree' : 'miller';
+    dispatch('viewModeChange', { mode: newMode });
   }
   
   function handleSearch() {
@@ -80,25 +74,16 @@
   </div>
   
   <!-- View Mode Toggle -->
-  <Select value={viewMode} onValueChange={handleViewModeChange}>
-    <SelectTrigger class="w-32">
-      {#snippet children()}
-        {viewMode === 'miller' ? 'Miller' : 'Tree'}
-      {/snippet}
-    </SelectTrigger>
-    <SelectContent>
-      <SelectItem value="miller">
-        {#snippet children()}
-          Miller
-        {/snippet}
-      </SelectItem>
-      <SelectItem value="tree">
-        {#snippet children()}
-          Tree
-        {/snippet}
-      </SelectItem>
-    </SelectContent>
-  </Select>
+  <Button 
+    variant="outline" 
+    size="sm"
+    onclick={toggleViewMode}
+    class="w-24"
+  >
+    {#snippet children()}
+      {viewMode === 'miller' ? '📋 Miller' : '🌳 Tree'}
+    {/snippet}
+  </Button>
   
   <!-- Actions -->
   <div class="flex items-center gap-2">

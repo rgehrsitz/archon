@@ -15,10 +15,15 @@
   // Layout toggle state
   let viewMode: 'miller' | 'tree' = 'miller';
   let selectedNode: any = null;
+  let selectedNodePath: any[] = [];
   
-  // Handle node selection from Miller columns
+  // Derived selected node ID for passing to child components
+  $: selectedNodeId = selectedNode?.id || null;
+  
+  // Handle node selection from both views
   function handleNodeSelect(event: CustomEvent) {
     selectedNode = event.detail.node;
+    selectedNodePath = event.detail.path || [];
   }
   
   function handleViewModeChange(event: CustomEvent) {
@@ -45,11 +50,15 @@
       {#if viewMode === 'miller'}
         <MillerColumns 
           {projectId}
+          {selectedNodeId}
+          {selectedNodePath}
           on:nodeSelect={handleNodeSelect}
         />
       {:else}
         <TreeView 
           {projectId}
+          {selectedNodeId}
+          {selectedNodePath}
           on:nodeSelect={handleNodeSelect}
         />
       {/if}

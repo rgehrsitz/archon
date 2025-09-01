@@ -3,6 +3,8 @@
   import { GetRootNode, ListChildren } from '../../../../wailsjs/go/api/NodeService.js';
   
   export let projectId: string;
+  export let selectedNodeId: string | null = null;
+  export let selectedNodePath: any[] = [];
   
   const dispatch = createEventDispatcher<{
     nodeSelect: { node: any, path: any[] };
@@ -24,6 +26,8 @@
   let columnOffset = 0;
   let hoveredColumnIndex = -1;
   let isHovering = false;
+  let isReconstructingFromPath = false;
+  let lastProcessedPath: string = '';
   
   // Column width and transition settings
   const COLUMN_WIDTH = 240;
@@ -46,6 +50,53 @@
     await loadRootColumn();
     updateLayout();
   });
+  
+  // Reconstruct columns when selectedNodePath changes (e.g., when switching from TreeView)
+  $: {
+    const currentPathKey = selectedNodePath.map(n => n.id).join('->');
+    if (selectedNodePath.length > 0 && 
+        columns.length <= 1 && 
+        !isReconstructingFromPath &&
+        currentPathKey !== lastProcessedPath) {
+      lastProcessedPath = currentPathKey;
+      reconstructColumnsFromPath(selectedNodePath);
+    }
+  }
+  
+  async function reconstructColumnsFromPath(path: any[]) {
+    if (path.length === 0 || isReconstructingFromPath) return;
+    
+    isReconstructingFromPath = true;
+    
+    try {
+      // Start with root column
+      await loadRootColumn();
+      
+      // Build columns for each node in the path (except the last one)
+      for (let i = 0; i < path.length - 1; i++) {
+        const currentNode = path[i];
+        const nextNode = path[i + 1];
+        
+        // Find current node in the current column and expand it
+        const currentColumnIndex = i;
+        if (currentColumnIndex < columns.length) {
+          const column = columns[currentColumnIndex];
+          const nodeInColumn = column.nodes.find(n => n.id === currentNode.id);
+          
+          if (nodeInColumn && nextNode) {
+            // Load children for this node (which will create the next column)
+            await loadChildrenColumn(nodeInColumn, currentColumnIndex);
+          }
+        }
+      }
+      
+      updateLayout();
+    } catch (error) {
+      console.error('Failed to reconstruct columns from path:', error);
+    } finally {
+      isReconstructingFromPath = false;
+    }
+  }
   
   async function loadRootColumn() {
     try {
@@ -261,7 +312,7 @@
             {#each column.nodes as node}
               <button
                 class="w-full px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground flex items-center gap-2 group {
-                  node.id === column.selectedNodeId ? 'bg-accent text-accent-foreground' : ''
+                  node.id === selectedNodeId ? 'bg-accent text-accent-foreground' : ''
                 }"
                 onclick={() => handleNodeClick(node, columnIndex)}
               >
