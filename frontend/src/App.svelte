@@ -30,7 +30,7 @@
 <!-- Mode watcher for theme management -->
 <ModeWatcher />
 
-<main class="min-h-screen bg-background text-foreground">
+<main class="h-screen bg-background text-foreground">
   <svelte:component this={router} {routes} />
 </main>
 
