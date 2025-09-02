@@ -32,7 +32,7 @@
   // Layout constants
   const COLUMN_WIDTH = 280;
   const COLUMN_OVERLAP = 40; // How much columns overlap
-  const HIDDEN_COLUMN_WIDTH = 20; // Width when partially hidden
+  const HIDDEN_COLUMN_WIDTH = 60; // Width when partially hidden
   const TRANSITION_DURATION = 300;
   const HOVER_DELAY = 150; // Delay before hover reveal
   
@@ -219,76 +219,53 @@
     }
   }
   
-  // Reactive statement to ensure we get the current columns length
-  $: currentColumnsLength = columns.length;
-  
-  function getColumnTransform(columnIndex: number, totalColumns: number): string {
-    console.log(`getColumnTransform called for column ${columnIndex}, columns.length: ${totalColumns}`);
+  function getColumnTransform(columnIndex: number): string {
     const containerWidth = containerRef?.clientWidth || 800;
-    const isHovered = hoveredColumnIndex === columnIndex;
-    
-    // Calculate how many columns can fit in the container
     const maxVisibleColumns = Math.floor(containerWidth / (COLUMN_WIDTH - COLUMN_OVERLAP));
     
-    // Only start stacking when we have more columns than can fit
-    if (totalColumns <= maxVisibleColumns) {
-      // Normal side-by-side positioning with overlap
-      console.log(`Column ${columnIndex}: Normal positioning, translateX: ${columnIndex * (COLUMN_WIDTH - COLUMN_OVERLAP)}px`);
-      return `translateX(${columnIndex * (COLUMN_WIDTH - COLUMN_OVERLAP)}px)`;
-    }
-    
-    // Space is limited - keep NEWEST columns visible (rightmost), hide OLDEST as strips (leftmost)
-    const hiddenColumns = totalColumns - maxVisibleColumns;
+    // Calculate how many columns are hidden
+    const hiddenColumns = Math.max(0, columns.length - maxVisibleColumns);
     const isHidden = columnIndex < hiddenColumns;
-    
-    // Debug logging for all columns
-    console.log(`Column ${columnIndex} Debug:`, {
-      containerWidth,
-      maxVisibleColumns,
-      totalColumns: totalColumns,
-      willStack: totalColumns > maxVisibleColumns,
-      hiddenColumns: hiddenColumns,
-      isHidden: isHidden
-    });
+    const isHovered = hoveredColumnIndex === columnIndex;
     
     let translateX = 0;
+    let width = COLUMN_WIDTH;
+    let zIndex = 10 + columnIndex;
     
     if (isHidden && !isHovered) {
-      // Hidden column (oldest) - stack them on the left with small width
-      translateX = columnIndex * HIDDEN_COLUMN_WIDTH;
+      // Hidden column - show only a small portion
+      const hiddenWidth = hiddenColumns * HIDDEN_COLUMN_WIDTH;
+      const visibleColumns = Math.min(maxVisibleColumns, columns.length);
+      const visibleWidth = visibleColumns * (COLUMN_WIDTH - COLUMN_OVERLAP);
+      
+      translateX = hiddenWidth + visibleWidth - COLUMN_WIDTH;
+      width = HIDDEN_COLUMN_WIDTH;
+      zIndex = 5 + columnIndex;
     } else if (isHidden && isHovered) {
-      // Hovered hidden column - reveal it at its original position
-      translateX = columnIndex * (COLUMN_WIDTH - COLUMN_OVERLAP);
+      // Hovered hidden column - reveal it
+      const hiddenWidth = hiddenColumns * HIDDEN_COLUMN_WIDTH;
+      const visibleColumns = Math.min(maxVisibleColumns, columns.length);
+      const visibleWidth = visibleColumns * (COLUMN_WIDTH - COLUMN_OVERLAP);
+      
+      translateX = hiddenWidth + visibleWidth - COLUMN_WIDTH;
+      width = COLUMN_WIDTH;
+      zIndex = 100; // Bring to front
     } else {
-      // Visible column (newest) - positioned after hidden columns
+      // Visible column
+      const hiddenWidth = hiddenColumns * HIDDEN_COLUMN_WIDTH;
       const visibleIndex = columnIndex - hiddenColumns;
-      translateX = hiddenColumns * HIDDEN_COLUMN_WIDTH + visibleIndex * (COLUMN_WIDTH - COLUMN_OVERLAP);
+      translateX = hiddenWidth + visibleIndex * (COLUMN_WIDTH - COLUMN_OVERLAP);
+      zIndex = 10 + columnIndex;
     }
-    
-    console.log(`Column ${columnIndex} Final: translateX=${translateX}px, isHidden=${isHidden}, isHovered=${isHovered}`);
     
     return `translateX(${translateX}px)`;
   }
   
-  function getColumnStyle(columnIndex: number, totalColumns: number): string {
+  function getColumnStyle(columnIndex: number): string {
     const containerWidth = containerRef?.clientWidth || 800;
     const maxVisibleColumns = Math.floor(containerWidth / (COLUMN_WIDTH - COLUMN_OVERLAP));
     
-    // Only start stacking when we have more columns than can fit
-    if (totalColumns <= maxVisibleColumns) {
-      // Normal side-by-side positioning with overlap
-      return `
-        width: ${COLUMN_WIDTH}px;
-        transform: ${getColumnTransform(columnIndex, totalColumns)};
-        opacity: 1;
-        z-index: ${10 + columnIndex};
-        transition: all ${TRANSITION_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      `;
-    }
-    
-    // Space is limited - handle stacking
-    const hiddenColumns = totalColumns - maxVisibleColumns;
-    const isHidden = columnIndex < hiddenColumns;
+    const isHidden = columnIndex < Math.max(0, columns.length - maxVisibleColumns);
     const isHovered = hoveredColumnIndex === columnIndex;
     
     let width = COLUMN_WIDTH;
@@ -307,7 +284,7 @@
     
     return `
       width: ${width}px;
-      transform: ${getColumnTransform(columnIndex, totalColumns)};
+      transform: ${getColumnTransform(columnIndex)};
       opacity: ${opacity};
       z-index: ${zIndex};
       transition: all ${TRANSITION_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -336,7 +313,7 @@
   {#each columns as column, columnIndex}
     <div
       class="absolute top-0 h-full bg-slate-800 border-r border-slate-700 shadow-lg"
-      style={getColumnStyle(columnIndex, currentColumnsLength)}
+      style={getColumnStyle(columnIndex)}
       onmouseenter={() => handleColumnHover(columnIndex, true)}
       onmouseleave={() => handleColumnHover(columnIndex, false)}
       role="region"
