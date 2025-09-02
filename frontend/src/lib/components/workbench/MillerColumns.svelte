@@ -30,6 +30,7 @@
   // Hover state management
   let hoveredColumnIndex = -1;
   let hoverTimeout: NodeJS.Timeout | null = null;
+  let isMouseOverColumns = false;
   // Keep containerWidth reactive to layout changes
   onMount(() => {
     const measure = () => {
@@ -60,7 +61,7 @@
   const REVEAL_WIDTH = 180; // Width to reveal when hovering a hidden column
   const REVEAL_GAP = 12; // Small gap between revealed hidden column and visible stack
   const TRANSITION_DURATION = 300;
-  const HOVER_DELAY = 50; // Delay before hover reveal
+  const HOVER_DELAY = 0; // No delay for immediate response
   
   // Helper function to transform backend nodes to frontend format
   function transformNode(node: any) {
@@ -225,28 +226,25 @@
   
   function handleColumnHover(columnIndex: number, isEntering: boolean) {
     console.log(`Column ${columnIndex} hover: ${isEntering ? 'enter' : 'leave'}`);
+    
+    // Clear any existing timeout
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      hoverTimeout = null;
+    }
+    
     if (isEntering) {
-      // Clear any existing timeout
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
-        hoverTimeout = null;
-      }
-      
-      // Set hover state with delay for smooth UX
-      hoverTimeout = setTimeout(() => {
-        hoveredColumnIndex = columnIndex;
-        console.log(`Hover activated for column ${columnIndex}`);
-      }, HOVER_DELAY);
+      isMouseOverColumns = true;
+      // Immediate hover activation
+      hoveredColumnIndex = columnIndex;
+      console.log(`Hover activated for column ${columnIndex}`);
     } else {
-      // Clear timeout and reset hover state with a small delay to prevent flickering
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
-        hoverTimeout = null;
-      }
+      // Small delay to prevent flickering when moving between columns
       hoverTimeout = setTimeout(() => {
         hoveredColumnIndex = -1;
+        isMouseOverColumns = false;
         console.log(`Hover deactivated for column ${columnIndex}`);
-      }, 100); // Small delay to prevent flickering
+      }, 50); // Reduced delay
     }
   }
   
@@ -307,14 +305,42 @@
     } else if (isHidden && isHovered) {
       // Hovered hidden column - stays in its original position, expands in place
       translateX = columnIndex * (HIDDEN_COLUMN_WIDTH + 3);
+    } else if (isHidden) {
+      // Hidden column that should be revealed due to hover (not the hovered one itself)
+      // Check if this column should be revealed based on hover
+      const hoveredHiddenIndex = hoveredIndex >= 0 && hoveredIndex < hiddenColumns ? hoveredIndex : -1;
+      const shouldReveal = hoveredHiddenIndex >= 0 && columnIndex > hoveredHiddenIndex && columnIndex < hiddenColumns;
+      
+      if (shouldReveal) {
+        // Reveal this column with proper spacing to show hierarchy
+        // Each revealed column should be positioned with enough space to be visible
+        const revealOffset = (columnIndex - hoveredHiddenIndex) * (REVEAL_WIDTH - HIDDEN_COLUMN_WIDTH + 5);
+        translateX = columnIndex * (HIDDEN_COLUMN_WIDTH + 3) + revealOffset;
+        console.log(`Column ${columnIndex}: shouldReveal=true, revealOffset=${revealOffset}, translateX=${translateX}`);
+      } else {
+        // Normal hidden column positioning
+        translateX = columnIndex * (HIDDEN_COLUMN_WIDTH + 3);
+      }
     } else {
       // Visible column (newest) - positioned after hidden stack
       const visibleIndex = columnIndex - hiddenColumns;
       const base = hiddenColumns * (HIDDEN_COLUMN_WIDTH + 3);
       
-      // If there's a hovered hidden column, add extra space to push visible columns right
+      // Check if this visible column should be revealed due to hover
       const hoveredHiddenIndex = hoveredIndex >= 0 && hoveredIndex < hiddenColumns ? hoveredIndex : -1;
-      const extraSpace = hoveredHiddenIndex >= 0 ? (REVEAL_WIDTH - HIDDEN_COLUMN_WIDTH) : 0;
+      const shouldRevealVisible = hoveredHiddenIndex >= 0 && columnIndex === hiddenColumns; // First visible column
+      
+      console.log(`Column ${columnIndex} (transform): hoveredHiddenIndex=${hoveredHiddenIndex}, hiddenColumns=${hiddenColumns}, shouldRevealVisible=${shouldRevealVisible}`);
+      
+      let extraSpace = 0;
+      if (hoveredHiddenIndex >= 0) {
+        // Calculate space for all revealed hidden columns (from hovered to end of hidden)
+        const revealedHiddenColumns = hiddenColumns - hoveredHiddenIndex;
+        // Each revealed hidden column needs (REVEAL_WIDTH - HIDDEN_COLUMN_WIDTH + 5) extra space
+        // The +5 accounts for the spacing between revealed columns
+        extraSpace = (REVEAL_WIDTH - HIDDEN_COLUMN_WIDTH + 5) * revealedHiddenColumns;
+        console.log(`Column ${columnIndex}: hoveredHiddenIndex=${hoveredHiddenIndex}, revealedHiddenColumns=${revealedHiddenColumns}, extraSpace=${extraSpace}`);
+      }
       
       translateX = base + extraSpace + visibleIndex * (COLUMN_WIDTH - COLUMN_OVERLAP);
     }
@@ -353,16 +379,51 @@
     let boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.92), inset 1px 0 0 rgba(148, 163, 184, 0.08)';
     
     if (isHidden && !isHovered) {
-      width = HIDDEN_COLUMN_WIDTH;
-      opacity = 0.8;
-      zIndex = 5 + columnIndex;
-      boxShadow = 'inset -2px 0 0 rgba(15, 23, 42, 0.98), inset 2px 0 0 rgba(148, 163, 184, 0.6), inset 0 -1px 0 rgba(148, 163, 184, 0.3)';
+      // Check if this column should be revealed due to hover
+      const hoveredHiddenIndex = hoveredColumnIndex >= 0 && hoveredColumnIndex < hiddenColumns ? hoveredColumnIndex : -1;
+      const shouldReveal = hoveredHiddenIndex >= 0 && columnIndex > hoveredHiddenIndex && columnIndex < hiddenColumns;
+      
+      if (shouldReveal) {
+        // Reveal this column with slightly reduced width to show hierarchy
+        width = REVEAL_WIDTH - 20; // Slightly narrower than the hovered column
+        opacity = 0.9;
+        zIndex = 50 + columnIndex;
+        boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.95), inset 1px 0 0 rgba(148, 163, 184, 0.4), 0 4px 16px rgba(0,0,0,0.3)';
+      } else {
+        // Normal hidden column
+        width = HIDDEN_COLUMN_WIDTH;
+        opacity = 0.8;
+        zIndex = 5 + columnIndex;
+        boxShadow = 'inset -2px 0 0 rgba(15, 23, 42, 0.98), inset 2px 0 0 rgba(148, 163, 184, 0.6), inset 0 -1px 0 rgba(148, 163, 184, 0.3)';
+      }
     } else if (isHidden && isHovered) {
       // Reveal at a narrower, readable width so layout remains stable
       width = REVEAL_WIDTH;
       opacity = 1;
       zIndex = 100;
       boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.7), 0 12px 32px rgba(0,0,0,0.8)';
+    } else if (!isHidden) {
+      // Visible column - check if it should be revealed due to hover
+      const hoveredHiddenIndex = hoveredColumnIndex >= 0 && hoveredColumnIndex < hiddenColumns ? hoveredColumnIndex : -1;
+      const shouldRevealVisible = hoveredHiddenIndex >= 0 && columnIndex === hiddenColumns; // First visible column
+      
+      console.log(`Column ${columnIndex} (visible): hoveredHiddenIndex=${hoveredHiddenIndex}, hiddenColumns=${hiddenColumns}, shouldRevealVisible=${shouldRevealVisible}`);
+      
+      if (shouldRevealVisible) {
+        // First visible column should be revealed with slightly reduced width
+        width = REVEAL_WIDTH - 20;
+        opacity = 0.9;
+        zIndex = 50 + columnIndex;
+        boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.95), inset 1px 0 0 rgba(148, 163, 184, 0.4), 0 4px 16px rgba(0,0,0,0.3)';
+        console.log(`Column ${columnIndex}: Applying breadcrumb styling (width=${width}, opacity=${opacity})`);
+      } else {
+        // Normal visible column
+        width = COLUMN_WIDTH;
+        opacity = 1;
+        zIndex = 10 + columnIndex;
+        boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.92), inset 1px 0 0 rgba(148, 163, 184, 0.08)';
+        console.log(`Column ${columnIndex}: Normal visible column styling`);
+      }
     }
     
     return `
@@ -393,6 +454,17 @@
 <div 
   bind:this={containerRef}
   class="relative h-full overflow-hidden bg-slate-900"
+  role="region"
+  aria-label="Miller Columns Navigation"
+  onmouseleave={() => {
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      hoverTimeout = null;
+    }
+    hoveredColumnIndex = -1;
+    isMouseOverColumns = false;
+    console.log('Mouse left container, clearing hover state');
+  }}
 >
   {#each columns as column, columnIndex}
     <div
