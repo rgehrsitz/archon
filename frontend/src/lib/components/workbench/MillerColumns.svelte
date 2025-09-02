@@ -22,19 +22,45 @@
   
   let columns: Column[] = [];
   let containerRef: HTMLDivElement;
+  let containerWidth = 0;
   let isReconstructingFromPath = false;
   let lastProcessedPath: string = '';
+  let columnStyles: string[] = [];
   
   // Hover state management
   let hoveredColumnIndex = -1;
   let hoverTimeout: NodeJS.Timeout | null = null;
+  // Keep containerWidth reactive to layout changes
+  onMount(() => {
+    const measure = () => {
+      if (containerRef) {
+        const newWidth = containerRef.clientWidth;
+        if (newWidth !== containerWidth) {
+          containerWidth = newWidth;
+          console.log('Container width updated:', containerWidth);
+        }
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(() => {
+      console.log('ResizeObserver callback fired');
+      measure();
+    });
+    if (containerRef) {
+      ro.observe(containerRef);
+    }
+    return () => ro.disconnect();
+  });
+
   
   // Layout constants
   const COLUMN_WIDTH = 280;
   const COLUMN_OVERLAP = 40; // How much columns overlap
-  const HIDDEN_COLUMN_WIDTH = 20; // Width when partially hidden
+  const HIDDEN_COLUMN_WIDTH = 16; // Width when partially hidden
+  const REVEAL_WIDTH = 180; // Width to reveal when hovering a hidden column
+  const REVEAL_GAP = 12; // Small gap between revealed hidden column and visible stack
   const TRANSITION_DURATION = 300;
-  const HOVER_DELAY = 150; // Delay before hover reveal
+  const HOVER_DELAY = 50; // Delay before hover reveal
   
   // Helper function to transform backend nodes to frontend format
   function transformNode(node: any) {
@@ -198,6 +224,7 @@
   }
   
   function handleColumnHover(columnIndex: number, isEntering: boolean) {
+    console.log(`Column ${columnIndex} hover: ${isEntering ? 'enter' : 'leave'}`);
     if (isEntering) {
       // Clear any existing timeout
       if (hoverTimeout) {
@@ -208,24 +235,45 @@
       // Set hover state with delay for smooth UX
       hoverTimeout = setTimeout(() => {
         hoveredColumnIndex = columnIndex;
+        console.log(`Hover activated for column ${columnIndex}`);
       }, HOVER_DELAY);
     } else {
-      // Clear timeout and reset hover state
+      // Clear timeout and reset hover state with a small delay to prevent flickering
       if (hoverTimeout) {
         clearTimeout(hoverTimeout);
         hoverTimeout = null;
       }
-      hoveredColumnIndex = -1;
+      hoverTimeout = setTimeout(() => {
+        hoveredColumnIndex = -1;
+        console.log(`Hover deactivated for column ${columnIndex}`);
+      }, 100); // Small delay to prevent flickering
     }
   }
   
   // Reactive statement to ensure we get the current columns length
   $: currentColumnsLength = columns.length;
   
-  function getColumnTransform(columnIndex: number, totalColumns: number): string {
+  // Create reactive style objects for each column - explicitly depend on all relevant variables
+  $: if (columns.length > 0) {
+    columnStyles = columns.map((_, columnIndex) => {
+      console.log(`Recalculating style for column ${columnIndex}`, { containerWidth, hoveredColumnIndex, currentColumnsLength });
+      return getColumnStyle(columnIndex, currentColumnsLength);
+    });
+  }
+  
+  function containerWidthRef(): number {
+    return containerWidth || containerRef?.clientWidth || 800;
+  }
+  
+  function getColumnTransform(
+    columnIndex: number,
+    totalColumns: number,
+    widthPx: number,
+    hoveredIndex: number
+  ): string {
     console.log(`getColumnTransform called for column ${columnIndex}, columns.length: ${totalColumns}`);
-    const containerWidth = containerRef?.clientWidth || 800;
-    const isHovered = hoveredColumnIndex === columnIndex;
+    const containerWidth = widthPx;
+    const isHovered = hoveredIndex === columnIndex;
     
     // Calculate how many columns can fit in the container
     const maxVisibleColumns = Math.floor(containerWidth / (COLUMN_WIDTH - COLUMN_OVERLAP));
@@ -254,24 +302,30 @@
     let translateX = 0;
     
     if (isHidden && !isHovered) {
-      // Hidden column (oldest) - stack them on the left with small width
-      translateX = columnIndex * HIDDEN_COLUMN_WIDTH;
+      // Hidden column (oldest) - stack on the extreme left, compact spacing
+      translateX = columnIndex * (HIDDEN_COLUMN_WIDTH + 3);
     } else if (isHidden && isHovered) {
-      // Hovered hidden column - reveal it at its original position
-      translateX = columnIndex * (COLUMN_WIDTH - COLUMN_OVERLAP);
+      // Hovered hidden column - stays in its original position, expands in place
+      translateX = columnIndex * (HIDDEN_COLUMN_WIDTH + 3);
     } else {
-      // Visible column (newest) - positioned after hidden columns
+      // Visible column (newest) - positioned after hidden stack
       const visibleIndex = columnIndex - hiddenColumns;
-      translateX = hiddenColumns * HIDDEN_COLUMN_WIDTH + visibleIndex * (COLUMN_WIDTH - COLUMN_OVERLAP);
+      const base = hiddenColumns * (HIDDEN_COLUMN_WIDTH + 3);
+      
+      // If there's a hovered hidden column, add extra space to push visible columns right
+      const hoveredHiddenIndex = hoveredIndex >= 0 && hoveredIndex < hiddenColumns ? hoveredIndex : -1;
+      const extraSpace = hoveredHiddenIndex >= 0 ? (REVEAL_WIDTH - HIDDEN_COLUMN_WIDTH) : 0;
+      
+      translateX = base + extraSpace + visibleIndex * (COLUMN_WIDTH - COLUMN_OVERLAP);
     }
     
-    console.log(`Column ${columnIndex} Final: translateX=${translateX}px, isHidden=${isHidden}, isHovered=${isHovered}`);
+    console.log(`Column ${columnIndex} Final: translateX=${translateX}px, isHidden=${isHidden}, isHovered=${isHovered}, hoveredIndex=${hoveredIndex}`);
     
     return `translateX(${translateX}px)`;
   }
   
   function getColumnStyle(columnIndex: number, totalColumns: number): string {
-    const containerWidth = containerRef?.clientWidth || 800;
+    const containerWidth = containerWidthRef();
     const maxVisibleColumns = Math.floor(containerWidth / (COLUMN_WIDTH - COLUMN_OVERLAP));
     
     // Only start stacking when we have more columns than can fit
@@ -279,7 +333,7 @@
       // Normal side-by-side positioning with overlap
       return `
         width: ${COLUMN_WIDTH}px;
-        transform: ${getColumnTransform(columnIndex, totalColumns)};
+        transform: ${getColumnTransform(columnIndex, totalColumns, containerWidth, hoveredColumnIndex)};
         opacity: 1;
         z-index: ${10 + columnIndex};
         transition: all ${TRANSITION_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -291,26 +345,33 @@
     const isHidden = columnIndex < hiddenColumns;
     const isHovered = hoveredColumnIndex === columnIndex;
     
+    console.log(`getColumnStyle for column ${columnIndex}: isHidden=${isHidden}, isHovered=${isHovered}, hoveredColumnIndex=${hoveredColumnIndex}`);
+    
     let width = COLUMN_WIDTH;
     let opacity = 1;
     let zIndex = 10 + columnIndex;
+    let boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.92), inset 1px 0 0 rgba(148, 163, 184, 0.08)';
     
     if (isHidden && !isHovered) {
       width = HIDDEN_COLUMN_WIDTH;
-      opacity = 0.6;
+      opacity = 0.8;
       zIndex = 5 + columnIndex;
+      boxShadow = 'inset -2px 0 0 rgba(15, 23, 42, 0.98), inset 2px 0 0 rgba(148, 163, 184, 0.6), inset 0 -1px 0 rgba(148, 163, 184, 0.3)';
     } else if (isHidden && isHovered) {
-      width = COLUMN_WIDTH;
+      // Reveal at a narrower, readable width so layout remains stable
+      width = REVEAL_WIDTH;
       opacity = 1;
       zIndex = 100;
+      boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.7), 0 12px 32px rgba(0,0,0,0.8)';
     }
     
     return `
       width: ${width}px;
-      transform: ${getColumnTransform(columnIndex, totalColumns)};
+      transform: ${getColumnTransform(columnIndex, totalColumns, containerWidth, hoveredColumnIndex)};
       opacity: ${opacity};
       z-index: ${zIndex};
-      transition: all ${TRANSITION_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      box-shadow: ${boxShadow};
+      transition: transform ${TRANSITION_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94), width ${TRANSITION_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity ${TRANSITION_DURATION}ms ease;
     `;
   }
   
@@ -335,8 +396,8 @@
 >
   {#each columns as column, columnIndex}
     <div
-      class="absolute top-0 h-full bg-slate-800 border-r border-slate-700 shadow-lg"
-      style={getColumnStyle(columnIndex, currentColumnsLength)}
+      class="absolute top-0 h-full bg-slate-800 shadow-lg cursor-pointer"
+      style={columnStyles[columnIndex]}
       onmouseenter={() => handleColumnHover(columnIndex, true)}
       onmouseleave={() => handleColumnHover(columnIndex, false)}
       role="region"
