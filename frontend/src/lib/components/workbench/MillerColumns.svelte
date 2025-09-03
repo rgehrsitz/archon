@@ -20,6 +20,19 @@
     title: string;
   }
   
+  // Utility: compute the path currently displayed by the columns (selected nodes per column)
+  function currentDisplayedPathKey(): string {
+    const ids: string[] = [];
+    for (let i = 0; i < columns.length; i++) {
+      const col = columns[i];
+      if (!col.selectedNodeId) break;
+      const node = col.nodes.find((n) => n.id === col.selectedNodeId);
+      if (!node) break;
+      ids.push(node.id);
+    }
+    return ids.join('->');
+  }
+  
   let columns: Column[] = [];
   let containerRef: HTMLDivElement;
   let containerWidth = 0;
@@ -73,7 +86,7 @@
     return {
       id: node.id,
       name: node.name,
-      hasChildren: node.children && node.children.length > 0,
+      hasChildren: typeof node.hasChildren === 'boolean' ? node.hasChildren : Boolean(node.children && node.children.length > 0),
       type: node.type,
       metadata: node.metadata
     };
@@ -94,15 +107,24 @@
     });
   }
   
-  // Reconstruct columns when selectedNodePath changes
+  // Reconstruct columns when selectedNodePath changes in parent and differs from displayed path
   $: {
-    const currentPathKey = selectedNodePath.map(n => n.id).join('->');
-    if (selectedNodePath.length > 0 && 
-        columns.length <= 1 && 
-        !isReconstructingFromPath &&
-        currentPathKey !== lastProcessedPath) {
+    const currentPathKey = selectedNodePath.map((n) => n.id).join('->');
+    const displayedKey = currentDisplayedPathKey();
+    if (!isReconstructingFromPath && currentPathKey && currentPathKey !== displayedKey && currentPathKey !== lastProcessedPath) {
       lastProcessedPath = currentPathKey;
       reconstructColumnsFromPath(selectedNodePath);
+    }
+  }
+
+  // If parent clears the path (navigate to root), reset columns to root state
+  $: if (!isReconstructingFromPath && selectedNodePath.length === 0) {
+    if (columns.length === 0) {
+      // Reload root if necessary
+      loadRootColumn();
+    } else if (columns.length > 1 || (columns[0] && columns[0].selectedNodeId)) {
+      columns = columns.slice(0, 1);
+      if (columns[0]) columns[0].selectedNodeId = null;
     }
   }
   
@@ -129,6 +151,16 @@
           if (nodeInColumn && nextNode) {
             await loadChildrenColumn(nodeInColumn, currentColumnIndex);
           }
+        }
+      }
+
+      // After building, select the final node in its column (do not dispatch)
+      const lastNode = path[path.length - 1];
+      const lastColumnIndex = path.length - 1;
+      if (columns[lastColumnIndex]) {
+        const lastNodeInColumn = columns[lastColumnIndex].nodes.find(n => n.id === lastNode.id);
+        if (lastNodeInColumn) {
+          columns[lastColumnIndex].selectedNodeId = lastNode.id;
         }
       }
     } catch (error) {
@@ -171,12 +203,14 @@
     // Mark parent as selected
     columns[columnIndex].selectedNodeId = parentNode.id;
     
+    // Emit selection event for any selection (folder or leaf) unless we are reconstructing
+    const selPath = getNodePath(parentNode, columnIndex);
+    if (!isReconstructingFromPath) {
+      dispatch('nodeSelect', { node: parentNode, path: selPath });
+    }
+    
     if (!parentNode.hasChildren) {
-      // Emit selection event for leaf nodes
-      dispatch('nodeSelect', { 
-        node: parentNode, 
-        path: getNodePath(parentNode, columnIndex)
-      });
+      // Leaf node: nothing more to load
       return;
     }
     
@@ -510,6 +544,9 @@
       </div>
     </div>
   {/if}
+
+  
+
   {#each columns as column, columnIndex}
     <div
       class="miller-column absolute top-0 h-full bg-slate-800 shadow-lg cursor-pointer"
@@ -603,6 +640,8 @@
   :global(.overflow-y-auto::-webkit-scrollbar-thumb:hover) {
     background: #64748b;
   }
+
+  
 
   /* Column chrome */
   .miller-column::before,

@@ -29,6 +29,18 @@
   function handleViewModeChange(event: CustomEvent) {
     viewMode = event.detail.mode;
   }
+
+  function handleBreadcrumbNavigate(event: CustomEvent) {
+    const idx: number = event.detail.index;
+    if (idx < 0) {
+      selectedNodePath = [];
+      selectedNode = null;
+      return;
+    }
+    const newPath = selectedNodePath.slice(0, idx + 1);
+    selectedNodePath = newPath;
+    selectedNode = newPath[newPath.length - 1] || null;
+  }
 </script>
 
 <svelte:head>
@@ -40,7 +52,9 @@
   <CommandBar 
     {projectId}
     {viewMode}
+    nodePath={selectedNodePath}
     on:viewModeChange={handleViewModeChange}
+    on:breadcrumbNavigate={handleBreadcrumbNavigate}
   />
   
   <!-- Main Workbench Area -->

@@ -5,19 +5,23 @@
   
   export const projectId: string = undefined!;
   export let viewMode: 'miller' | 'tree' = 'miller';
+  export let nodePath: any[] = [];
   
   const dispatch = createEventDispatcher<{
     viewModeChange: { mode: 'miller' | 'tree' };
     search: { query: string };
     snapshot: void;
     sync: void;
+    breadcrumbNavigate: { index: number };
   }>();
   
   let searchQuery = '';
-  let breadcrumbs = [
-    { id: 'root', name: 'Project Root' },
-    { id: 'lab-a', name: 'Lab A' },
-    { id: 'bench-3', name: 'Bench 3' }
+  type Crumb = { id: string; name: string; index: number };
+  let breadcrumbs: Crumb[] = [];
+
+  $: breadcrumbs = [
+    { id: 'root', name: 'ROOT', index: -1 },
+    ...nodePath.map((n, i) => ({ id: n.id, name: n.name || 'Untitled', index: i }))
   ];
   
   function toggleViewMode() {
@@ -29,6 +33,10 @@
     if (searchQuery.trim()) {
       dispatch('search', { query: searchQuery });
     }
+  }
+
+  function handleCrumbClick(crumb: Crumb) {
+    dispatch('breadcrumbNavigate', { index: crumb.index });
   }
   
   function handleKeydown(event: KeyboardEvent) {
@@ -53,6 +61,7 @@
       <button 
         class="hover:text-primary truncate max-w-32"
         title={crumb.name}
+        on:click={() => handleCrumbClick(crumb)}
       >
         {crumb.name}
       </button>
