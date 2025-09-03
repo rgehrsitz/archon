@@ -302,6 +302,10 @@
 
   $: layout = computeLayout(currentColumnsLength, containerWidth, hoveredColumnIndex);
 
+  // Count fully hidden columns for UI indicators
+  $: hiddenCount = layout?.widths?.filter((w) => w === HIDDEN_COLUMN_WIDTH).length || 0;
+  $: hiddenTicks = Math.min(hiddenCount, 9);
+
   // Create reactive style strings for each column; explicitly depend on layout
   $: if (columns.length > 0) {
     columnStyles = columns.map((_, columnIndex) => getColumnStyle(columnIndex, currentColumnsLength, layout));
@@ -430,21 +434,34 @@
     const zIndex = 10 + columnIndex; // natural stacking
 
     let opacity = 1;
-    let boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.92), inset 1px 0 0 rgba(148, 163, 184, 0.08)';
+    // Background lightness ramps slightly with index for separation
+    const baseL = 17 + Math.min(columnIndex, 8) * 1.2;
+    const bgL = baseL + (isPartialWidth ? 1.2 : 2.4);
+    const background = `hsl(215 28% ${bgL}%)`;
+
+    let boxShadow = '0 8px 24px rgba(0,0,0,0.35), inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(0,0,0,0.55)';
     if (isHiddenWidth) {
       opacity = 0.85;
-      boxShadow = 'inset -2px 0 0 rgba(15, 23, 42, 0.98), inset 2px 0 0 rgba(148, 163, 184, 0.6), inset 0 -1px 0 rgba(148, 163, 184, 0.3)';
+      boxShadow = '0 4px 12px rgba(0,0,0,0.25), inset 1px 0 0 rgba(255,255,255,0.06), inset -1px 0 0 rgba(0,0,0,0.7)';
     } else if (isPartialWidth) {
       opacity = 0.95;
-      boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.95), inset 1px 0 0 rgba(148, 163, 184, 0.4), 0 4px 16px rgba(0,0,0,0.3)';
+      boxShadow = '0 6px 18px rgba(0,0,0,0.30), inset 1px 0 0 rgba(255,255,255,0.08), inset -1px 0 0 rgba(0,0,0,0.6)';
+    }
+    if (columnIndex === hoveredColumnIndex) {
+      boxShadow += ', 0 0 0 2px rgba(59,130,246,0.55) inset';
     }
 
     return `
       width: ${width}px;
       transform: translateX(${left}px);
+      background-color: ${background};
       opacity: ${opacity};
       z-index: ${zIndex};
       box-shadow: ${boxShadow};
+      border-right: 1px solid rgba(148,163,184,0.18);
+      border-left: 1px solid rgba(15,23,42,0.85);
+      box-sizing: border-box;
+      border-radius: 10px 10px 0 0;
       transition: transform ${TRANSITION_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94), width ${TRANSITION_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity ${TRANSITION_DURATION}ms ease;
     `;
   }
@@ -479,9 +496,23 @@
     console.log('Mouse left container, clearing hover state');
   }}
 >
+  {#if hiddenCount > 0}
+    <!-- Left hidden columns rail -->
+    <div class="left-rail pointer-events-none absolute left-0 top-0 h-full" style="width: {HIDDEN_COLUMN_WIDTH}px;">
+      <div class="rail-bg absolute inset-0"></div>
+      <div class="badge absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] px-2 py-0.5 rounded-full bg-blue-500/80 text-white shadow">
+        {hiddenCount}
+      </div>
+      <div class="ticks absolute left-1/2 -translate-x-1/2 top-14 bottom-4 flex flex-col justify-between">
+        {#each Array(hiddenTicks) as _, i}
+          <div class="tick w-[6px] h-[10px] rounded-sm bg-slate-300/40"></div>
+        {/each}
+      </div>
+    </div>
+  {/if}
   {#each columns as column, columnIndex}
     <div
-      class="absolute top-0 h-full bg-slate-800 shadow-lg cursor-pointer"
+      class="miller-column absolute top-0 h-full bg-slate-800 shadow-lg cursor-pointer"
       style={columnStyles[columnIndex]}
       on:mouseenter={() => handleColumnHover(columnIndex, true)}
       on:mouseleave={() => handleColumnHover(columnIndex, false)}
@@ -489,7 +520,7 @@
       aria-label="Column {columnIndex + 1}"
     >
       <!-- Column Header -->
-      <div class="h-12 border-b border-slate-700 bg-slate-800 px-4 flex items-center">
+      <div class="column-header h-12 border-b border-slate-700 px-4 flex items-center">
         <h3 class="text-sm font-semibold text-slate-200 truncate">
           {getColumnTitle(column, columnIndex)}
         </h3>
@@ -517,8 +548,8 @@
           <div class="py-2">
             {#each column.nodes as node}
               <button
-                class="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3 group transition-colors duration-150 {
-                  column.selectedNodeId === node.id ? 'bg-blue-600 text-white' : 'text-slate-200 hover:text-white'
+                class="w-full px-4 py-3 text-left hover:bg-slate-700/70 flex items-center gap-3 group transition-colors duration-150 border-b border-slate-700/40 {
+                  column.selectedNodeId === node.id ? 'bg-blue-600 text-white ring-2 ring-blue-400/30' : 'text-slate-200 hover:text-white'
                 }"
                 on:click={() => handleNodeClick(node, columnIndex)}
               >
@@ -571,5 +602,42 @@
   
   :global(.overflow-y-auto::-webkit-scrollbar-thumb:hover) {
     background: #64748b;
+  }
+
+  /* Column chrome */
+  .miller-column::before,
+  .miller-column::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    pointer-events: none;
+  }
+  .miller-column::before {
+    left: -10px;
+    background: linear-gradient(to right, rgba(0,0,0,0.28), rgba(0,0,0,0));
+  }
+  .miller-column::after {
+    right: -10px;
+    background: linear-gradient(to left, rgba(0,0,0,0.28), rgba(0,0,0,0));
+  }
+
+  .column-header {
+    background: linear-gradient(to bottom, rgba(255,255,255,0.06), rgba(255,255,255,0));
+    backdrop-filter: saturate(120%);
+  }
+
+  /* Hidden rail */
+  .left-rail .rail-bg {
+    background: linear-gradient(to bottom, rgba(15,23,42,0.9), rgba(15,23,42,0.65));
+    box-shadow: inset -1px 0 0 rgba(255,255,255,0.06), inset 1px 0 0 rgba(0,0,0,0.7);
+    border-right: 1px solid rgba(148,163,184,0.18);
+  }
+  .left-rail .badge {
+    backdrop-filter: blur(2px);
+  }
+  .left-rail .ticks .tick {
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
   }
 </style>
