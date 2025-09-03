@@ -50,7 +50,12 @@
     if (containerRef) {
       ro.observe(containerRef);
     }
-    return () => ro.disconnect();
+    const onWinResize = () => {
+      console.log('Window resize event');
+      measure();
+    };
+    window.addEventListener('resize', onWinResize);
+    return () => { ro.disconnect(); window.removeEventListener('resize', onWinResize); };
   });
 
   
@@ -250,13 +255,56 @@
   
   // Reactive statement to ensure we get the current columns length
   $: currentColumnsLength = columns.length;
-  
-  // Create reactive style objects for each column - explicitly depend on all relevant variables
+
+  // Compute simple layout (widths + left edges) based on container width and hover
+  interface Layout { widths: number[]; lefts: number[] }
+
+  function computeLayout(totalColumns: number, cw: number, hoveredIndex: number): Layout {
+    const FW = COLUMN_WIDTH;
+    const HW = HIDDEN_COLUMN_WIDTH;
+    const PW = REVEAL_WIDTH;
+    const n = totalColumns;
+    const widths: number[] = new Array(n).fill(HW);
+    const lefts: number[] = new Array(n).fill(0);
+
+    let RW = cw;
+    for (let i = n - 1; i >= 0; i--) {
+      if (FW + i * HW <= RW) {
+        widths[i] = FW;
+        RW -= FW;
+      } else {
+        widths[i] = HW;
+        RW -= HW;
+      }
+    }
+
+    // base lefts
+    for (let i = 1; i < n; i++) lefts[i] = lefts[i-1] + widths[i-1];
+
+    // apply hover: if hovering a visible column while hidden exist, treat hover as last hidden index
+    if (hoveredIndex >= 0 && hoveredIndex < n) {
+      const lastHidden = widths.lastIndexOf(HW);
+      let start = hoveredIndex;
+      if (lastHidden >= 0 && widths[hoveredIndex] !== HW) {
+        start = lastHidden; // reveal as if hovering last hidden column
+      }
+      for (let i = start; i < n; i++) {
+        if (widths[i] === HW) widths[i] = PW;
+      }
+      // recompute lefts from start forward
+      for (let i = Math.max(1, start); i < n; i++) {
+        lefts[i] = lefts[i-1] + widths[i-1];
+      }
+    }
+
+    return { widths, lefts };
+  }
+
+  $: layout = computeLayout(currentColumnsLength, containerWidth, hoveredColumnIndex);
+
+  // Create reactive style strings for each column; explicitly depend on layout
   $: if (columns.length > 0) {
-    columnStyles = columns.map((_, columnIndex) => {
-      console.log(`Recalculating style for column ${columnIndex}`, { containerWidth, hoveredColumnIndex, currentColumnsLength });
-      return getColumnStyle(columnIndex, currentColumnsLength);
-    });
+    columnStyles = columns.map((_, columnIndex) => getColumnStyle(columnIndex, currentColumnsLength, layout));
   }
   
   function containerWidthRef(): number {
@@ -310,13 +358,17 @@
       // Check if this column should be revealed based on hover
       const hoveredHiddenIndex = hoveredIndex >= 0 && hoveredIndex < hiddenColumns ? hoveredIndex : -1;
       const shouldReveal = hoveredHiddenIndex >= 0 && columnIndex > hoveredHiddenIndex && columnIndex < hiddenColumns;
-      
+
       if (shouldReveal) {
-        // Reveal this column with proper spacing to show hierarchy
-        // Each revealed column should be positioned with enough space to be visible
-        const revealOffset = (columnIndex - hoveredHiddenIndex) * (REVEAL_WIDTH - HIDDEN_COLUMN_WIDTH + 5);
-        translateX = columnIndex * (HIDDEN_COLUMN_WIDTH + 3) + revealOffset;
-        console.log(`Column ${columnIndex}: shouldReveal=true, revealOffset=${revealOffset}, translateX=${translateX}`);
+        // Lay out revealed hidden columns contiguously to the right of the hovered one,
+        // separated by REVEAL_GAP, with a slightly narrower width (breadcrumb look).
+        const step = (HIDDEN_COLUMN_WIDTH + 3);
+        const revealedWidth = REVEAL_WIDTH - 20;
+        const leftOfHovered = hoveredHiddenIndex * step;
+        const rightOfHovered = leftOfHovered + REVEAL_WIDTH;
+        const idxFromHovered = columnIndex - hoveredHiddenIndex - 1; // 0 for the first revealed after hovered
+        translateX = rightOfHovered + REVEAL_GAP + idxFromHovered * (revealedWidth + REVEAL_GAP);
+        console.log(`Column ${columnIndex}: contiguous reveal, translateX=${translateX}`);
       } else {
         // Normal hidden column positioning
         translateX = columnIndex * (HIDDEN_COLUMN_WIDTH + 3);
@@ -328,21 +380,41 @@
       
       // Check if this visible column should be revealed due to hover
       const hoveredHiddenIndex = hoveredIndex >= 0 && hoveredIndex < hiddenColumns ? hoveredIndex : -1;
-      const shouldRevealVisible = hoveredHiddenIndex >= 0 && columnIndex === hiddenColumns; // First visible column
-      
-      console.log(`Column ${columnIndex} (transform): hoveredHiddenIndex=${hoveredHiddenIndex}, hiddenColumns=${hiddenColumns}, shouldRevealVisible=${shouldRevealVisible}`);
-      
+
+      // Compute the exact right edge of the hidden stack after reveal to avoid gaps
       let extraSpace = 0;
       if (hoveredHiddenIndex >= 0) {
-        // Calculate space for all revealed hidden columns (from hovered to end of hidden)
-        const revealedHiddenColumns = hiddenColumns - hoveredHiddenIndex;
-        // Each revealed hidden column needs (REVEAL_WIDTH - HIDDEN_COLUMN_WIDTH + 5) extra space
-        // The +5 accounts for the spacing between revealed columns
-        extraSpace = (REVEAL_WIDTH - HIDDEN_COLUMN_WIDTH + 5) * revealedHiddenColumns;
-        console.log(`Column ${columnIndex}: hoveredHiddenIndex=${hoveredHiddenIndex}, revealedHiddenColumns=${revealedHiddenColumns}, extraSpace=${extraSpace}`);
+        const h = hoveredHiddenIndex;
+        const step = (HIDDEN_COLUMN_WIDTH + 3);
+        const baseRight = hiddenColumns * step; // right edge with all hidden compact
+        const revealedWidth = REVEAL_WIDTH - 20; // width used for non-hovered revealed hidden cols
+
+        const leftOfHovered = h * step;
+        const rightOfHovered = leftOfHovered + REVEAL_WIDTH;
+        const numRevealedAfter = Math.max(0, hiddenColumns - h - 1);
+
+        let lastHiddenRight = rightOfHovered;
+        if (numRevealedAfter > 0) {
+          // total width added by revealed-after columns plus gaps between them and after hovered
+          const addedWidth = numRevealedAfter * revealedWidth;
+          const addedGaps = (numRevealedAfter) * REVEAL_GAP; // one gap after hovered + between each revealed
+          lastHiddenRight = rightOfHovered + REVEAL_GAP + (numRevealedAfter - 1) * (revealedWidth + REVEAL_GAP) + revealedWidth;
+          // Simplify for clarity: rightOfHovered + REVEAL_GAP + sum_{i=0..n-1}(revealedWidth + REVEAL_GAP)
+          lastHiddenRight = rightOfHovered + REVEAL_GAP + numRevealedAfter * revealedWidth + (numRevealedAfter - 1) * REVEAL_GAP;
+        }
+
+        // Shift visible columns so they start exactly at the revealed stack's edge
+        extraSpace = Math.max(0, Math.round(lastHiddenRight - baseRight));
+        console.log(`Column ${columnIndex}: computed extraSpace=${extraSpace}, lastHiddenRight=${lastHiddenRight}, baseRight=${baseRight}`);
       }
-      
-      translateX = base + extraSpace + visibleIndex * (COLUMN_WIDTH - COLUMN_OVERLAP);
+
+      // Clamp extraSpace so the rightmost visible column remains within container bounds
+      const stepVisible = (COLUMN_WIDTH - COLUMN_OVERLAP);
+      const numVisible = totalColumns - hiddenColumns;
+      const maxExtraSpace = Math.max(0, widthPx - COLUMN_WIDTH - base - (numVisible - 1) * stepVisible);
+      const clampedExtra = Math.min(extraSpace, maxExtraSpace);
+
+      translateX = base + clampedExtra + visibleIndex * stepVisible;
     }
     
     console.log(`Column ${columnIndex} Final: translateX=${translateX}px, isHidden=${isHidden}, isHovered=${isHovered}, hoveredIndex=${hoveredIndex}`);
@@ -350,85 +422,26 @@
     return `translateX(${translateX}px)`;
   }
   
-  function getColumnStyle(columnIndex: number, totalColumns: number): string {
-    const containerWidth = containerWidthRef();
-    const maxVisibleColumns = Math.floor(containerWidth / (COLUMN_WIDTH - COLUMN_OVERLAP));
-    
-    // Only start stacking when we have more columns than can fit
-    if (totalColumns <= maxVisibleColumns) {
-      // Normal side-by-side positioning with overlap
-      return `
-        width: ${COLUMN_WIDTH}px;
-        transform: ${getColumnTransform(columnIndex, totalColumns, containerWidth, hoveredColumnIndex)};
-        opacity: 1;
-        z-index: ${10 + columnIndex};
-        transition: all ${TRANSITION_DURATION}ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      `;
-    }
-    
-    // Space is limited - handle stacking
-    const hiddenColumns = totalColumns - maxVisibleColumns;
-    const isHidden = columnIndex < hiddenColumns;
-    const isHovered = hoveredColumnIndex === columnIndex;
-    
-    console.log(`getColumnStyle for column ${columnIndex}: isHidden=${isHidden}, isHovered=${isHovered}, hoveredColumnIndex=${hoveredColumnIndex}`);
-    
-    let width = COLUMN_WIDTH;
+  function getColumnStyle(columnIndex: number, totalColumns: number, layoutArg: Layout): string {
+    const width = layoutArg.widths[columnIndex] ?? COLUMN_WIDTH;
+    const left = layoutArg.lefts[columnIndex] ?? columnIndex * (COLUMN_WIDTH - COLUMN_OVERLAP);
+    const isHiddenWidth = width === HIDDEN_COLUMN_WIDTH;
+    const isPartialWidth = width === REVEAL_WIDTH;
+    const zIndex = 10 + columnIndex; // natural stacking
+
     let opacity = 1;
-    let zIndex = 10 + columnIndex;
     let boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.92), inset 1px 0 0 rgba(148, 163, 184, 0.08)';
-    
-    if (isHidden && !isHovered) {
-      // Check if this column should be revealed due to hover
-      const hoveredHiddenIndex = hoveredColumnIndex >= 0 && hoveredColumnIndex < hiddenColumns ? hoveredColumnIndex : -1;
-      const shouldReveal = hoveredHiddenIndex >= 0 && columnIndex > hoveredHiddenIndex && columnIndex < hiddenColumns;
-      
-      if (shouldReveal) {
-        // Reveal this column with slightly reduced width to show hierarchy
-        width = REVEAL_WIDTH - 20; // Slightly narrower than the hovered column
-        opacity = 0.9;
-        zIndex = 50 + columnIndex;
-        boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.95), inset 1px 0 0 rgba(148, 163, 184, 0.4), 0 4px 16px rgba(0,0,0,0.3)';
-      } else {
-        // Normal hidden column
-        width = HIDDEN_COLUMN_WIDTH;
-        opacity = 0.8;
-        zIndex = 5 + columnIndex;
-        boxShadow = 'inset -2px 0 0 rgba(15, 23, 42, 0.98), inset 2px 0 0 rgba(148, 163, 184, 0.6), inset 0 -1px 0 rgba(148, 163, 184, 0.3)';
-      }
-    } else if (isHidden && isHovered) {
-      // Reveal at a narrower, readable width so layout remains stable
-      width = REVEAL_WIDTH;
-      opacity = 1;
-      zIndex = 100;
-      boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.7), 0 12px 32px rgba(0,0,0,0.8)';
-    } else if (!isHidden) {
-      // Visible column - check if it should be revealed due to hover
-      const hoveredHiddenIndex = hoveredColumnIndex >= 0 && hoveredColumnIndex < hiddenColumns ? hoveredColumnIndex : -1;
-      const shouldRevealVisible = hoveredHiddenIndex >= 0 && columnIndex === hiddenColumns; // First visible column
-      
-      console.log(`Column ${columnIndex} (visible): hoveredHiddenIndex=${hoveredHiddenIndex}, hiddenColumns=${hiddenColumns}, shouldRevealVisible=${shouldRevealVisible}`);
-      
-      if (shouldRevealVisible) {
-        // First visible column should be revealed with slightly reduced width
-        width = REVEAL_WIDTH - 20;
-        opacity = 0.9;
-        zIndex = 50 + columnIndex;
-        boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.95), inset 1px 0 0 rgba(148, 163, 184, 0.4), 0 4px 16px rgba(0,0,0,0.3)';
-        console.log(`Column ${columnIndex}: Applying breadcrumb styling (width=${width}, opacity=${opacity})`);
-      } else {
-        // Normal visible column
-        width = COLUMN_WIDTH;
-        opacity = 1;
-        zIndex = 10 + columnIndex;
-        boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.92), inset 1px 0 0 rgba(148, 163, 184, 0.08)';
-        console.log(`Column ${columnIndex}: Normal visible column styling`);
-      }
+    if (isHiddenWidth) {
+      opacity = 0.85;
+      boxShadow = 'inset -2px 0 0 rgba(15, 23, 42, 0.98), inset 2px 0 0 rgba(148, 163, 184, 0.6), inset 0 -1px 0 rgba(148, 163, 184, 0.3)';
+    } else if (isPartialWidth) {
+      opacity = 0.95;
+      boxShadow = 'inset -1px 0 0 rgba(15, 23, 42, 0.95), inset 1px 0 0 rgba(148, 163, 184, 0.4), 0 4px 16px rgba(0,0,0,0.3)';
     }
-    
+
     return `
       width: ${width}px;
-      transform: ${getColumnTransform(columnIndex, totalColumns, containerWidth, hoveredColumnIndex)};
+      transform: translateX(${left}px);
       opacity: ${opacity};
       z-index: ${zIndex};
       box-shadow: ${boxShadow};
@@ -456,7 +469,7 @@
   class="relative h-full overflow-hidden bg-slate-900"
   role="region"
   aria-label="Miller Columns Navigation"
-  onmouseleave={() => {
+  on:mouseleave={() => {
     if (hoverTimeout) {
       clearTimeout(hoverTimeout);
       hoverTimeout = null;
@@ -470,8 +483,8 @@
     <div
       class="absolute top-0 h-full bg-slate-800 shadow-lg cursor-pointer"
       style={columnStyles[columnIndex]}
-      onmouseenter={() => handleColumnHover(columnIndex, true)}
-      onmouseleave={() => handleColumnHover(columnIndex, false)}
+      on:mouseenter={() => handleColumnHover(columnIndex, true)}
+      on:mouseleave={() => handleColumnHover(columnIndex, false)}
       role="region"
       aria-label="Column {columnIndex + 1}"
     >
@@ -507,7 +520,7 @@
                 class="w-full px-4 py-3 text-left hover:bg-slate-700 flex items-center gap-3 group transition-colors duration-150 {
                   column.selectedNodeId === node.id ? 'bg-blue-600 text-white' : 'text-slate-200 hover:text-white'
                 }"
-                onclick={() => handleNodeClick(node, columnIndex)}
+                on:click={() => handleNodeClick(node, columnIndex)}
               >
                 <!-- Node Icon -->
                 <span class="text-lg opacity-70 group-hover:opacity-100">
