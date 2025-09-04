@@ -99,13 +99,14 @@
   {height}
   let:hierarchyData
 >
-  <Chart {width} {height} padding={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-    <Svg>
-      <Tree 
-        hierarchy={hierarchyData}
-        {orientation}
-        nodeSize={orientation === 'horizontal' ? [30, 200] : [120, 30]}
-      >
+  <div style="width: {width}px; height: {height}px;">
+    <Chart padding={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+      <Svg>
+        <Tree 
+          hierarchy={hierarchyData}
+          {orientation}
+          nodeSize={orientation === 'horizontal' ? [30, 200] : [120, 30]}
+        >
         {#snippet children({ nodes, links })}
           <!-- Draw links first (behind nodes) -->
           {#each links as link}
@@ -123,7 +124,14 @@
 
           <!-- Draw nodes -->
           {#each nodes as node}
-            <g>
+            <g
+              role="button"
+              tabindex="0"
+              onclick={() => handleNodeClick(node)}
+              onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && handleNodeClick(node)}
+              onmouseenter={() => handleNodeHover(node)}
+              onmouseleave={() => handleNodeHover(null)}
+            >
               <Circle
                 cx={orientation === 'horizontal' ? node.y : node.x}
                 cy={orientation === 'horizontal' ? node.x : node.y}
@@ -133,9 +141,6 @@
                 strokeWidth={2}
                 opacity={0.9}
                 class="cursor-pointer hover:stroke-4 hover:scale-110 transition-all duration-200"
-                onclick={() => handleNodeClick(node)}
-                onmouseenter={() => handleNodeHover(node)}
-                onmouseleave={() => handleNodeHover(null)}
               />
               
               <!-- Node labels -->
@@ -146,9 +151,9 @@
                   y={labelPos.y}
                   textAnchor={orientation === 'horizontal' ? 'start' : 'middle'}
                   dy="0.35em"
-                  fontSize={10}
                   fill="#334155"
                   class="pointer-events-none select-none font-medium"
+                  style="font-size: 10px;"
                 >
                   {node.data.name.length > 15 ? node.data.name.substring(0, 15) + '...' : node.data.name}
                 </Text>
@@ -160,9 +165,9 @@
                     y={labelPos.y + 12}
                     textAnchor={orientation === 'horizontal' ? 'start' : 'middle'}
                     dy="0.35em"
-                    fontSize={8}
                     fill="#64748b"
                     class="pointer-events-none select-none"
+                    style="font-size: 8px;"
                   >
                     {node.data.type}
                   </Text>
@@ -171,9 +176,10 @@
             </g>
           {/each}
         {/snippet}
-      </Tree>
-    </Svg>
-  </Chart>
+        </Tree>
+      </Svg>
+    </Chart>
+  </div>
 </HierarchyVisualizationBase>
 
 <!-- Controls for orientation -->

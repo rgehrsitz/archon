@@ -1,7 +1,7 @@
 <script lang="ts">
   import HierarchyVisualizationBase from './HierarchyVisualizationBase.svelte';
   import { Chart, Svg, Pack, Circle, Text } from 'layerchart';
-  import type { HierarchyNode, HierarchyCircularNode } from 'd3-hierarchy';
+  import type { HierarchyCircularNode } from 'd3-hierarchy';
   import type { ArchonNode } from '$lib/types/visualization.js';
   import { scaleOrdinal } from 'd3-scale';
   import { schemeSet3 } from 'd3-scale-chromatic';
@@ -90,65 +90,66 @@
   height={size}
   let:hierarchyData
 >
-  <Chart width={size} height={size} padding={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-    <Svg>
-      <Pack 
-        hierarchy={hierarchyData}
-        padding={3}
-        size={[size - 20, size - 20]}
-      >
-        {#snippet children({ nodes })}
-          {#each nodes as node}
-            <g transform="translate({10}, {10})">
-              <Circle
-                cx={node.x}
-                cy={node.y}
-                r={node.r}
-                fill={getNodeColor(node)}
-                opacity={getNodeOpacity(node)}
-                stroke={node.depth === 0 ? '#e2e8f0' : 'white'}
-                strokeWidth={getStrokeWidth(node)}
-                class="cursor-pointer hover:brightness-110 transition-all duration-200 {node.depth > 0 ? 'hover:scale-105' : ''}"
-                onclick={() => handleCircleClick(node)}
-                onmouseenter={() => handleCircleHover(node)}
-                onmouseleave={() => handleCircleHover(null)}
-              />
-              
-              <!-- Text labels for larger circles -->
-              {#if shouldShowLabel(node)}
-                <Text
-                  x={node.x}
-                  y={node.y}
-                  textAnchor="middle"
-                  dy="0.35em"
-                  fontSize={getFontSize(node)}
-                  fill={node.depth === 1 ? 'white' : '#1e293b'}
-                  class="pointer-events-none select-none font-medium drop-shadow-sm"
+  {#if hierarchyData}
+    <div style="width: {size}px; height: {size}px;">
+      <Chart padding={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+        <Svg>
+          <Pack hierarchy={hierarchyData} padding={3} size={[size - 20, size - 20]}>
+            {#snippet children({ nodes })}
+              {#each nodes as node}
+                <g
+                  transform="translate(10,10)"
+                  role="button"
+                  tabindex="0"
+                  onclick={() => handleCircleClick(node)}
+                  onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCircleClick(node)}
+                  onmouseenter={() => handleCircleHover(node)}
+                  onmouseleave={() => handleCircleHover(null)}
                 >
-                  {getTruncatedName(node.data.name, node.r)}
-                </Text>
-                
-                <!-- Smaller secondary label for node type or child count -->
-                {#if node.r > 25 && (node.data.type || (node.children && node.children.length > 0))}
-                  <Text
-                    x={node.x}
-                    y={node.y + getFontSize(node) + 2}
-                    textAnchor="middle"
-                    dy="0.35em"
-                    fontSize={Math.max(6, getFontSize(node) - 2)}
-                    fill={node.depth === 1 ? '#e2e8f0' : '#64748b'}
-                    class="pointer-events-none select-none"
-                  >
-                    {node.data.type || `${node.children?.length || 0} items`}
-                  </Text>
-                {/if}
-              {/if}
-            </g>
-          {/each}
-        {/snippet}
-      </Pack>
-    </Svg>
-  </Chart>
+                  <Circle
+                    cx={node.x}
+                    cy={node.y}
+                    r={node.r}
+                    fill={getNodeColor(node)}
+                    opacity={getNodeOpacity(node)}
+                    stroke={node.depth === 0 ? '#e2e8f0' : 'white'}
+                    strokeWidth={getStrokeWidth(node)}
+                    class="cursor-pointer hover:brightness-110 transition-all duration-200 {node.depth > 0 ? 'hover:scale-105' : ''}"
+                  />
+                  {#if shouldShowLabel(node)}
+                    <Text
+                      x={node.x}
+                      y={node.y}
+                      textAnchor="middle"
+                      dy="0.35em"
+                      fill={node.depth === 1 ? 'white' : '#1e293b'}
+                      class="pointer-events-none select-none font-medium drop-shadow-sm"
+                      style={`font-size: ${getFontSize(node)}px;`}
+                    >
+                      {getTruncatedName(node.data.name, node.r)}
+                    </Text>
+                    {#if node.r > 25 && (node.data.type || (node.children && node.children.length > 0))}
+                      <Text
+                        x={node.x}
+                        y={node.y + getFontSize(node) + 2}
+                        textAnchor="middle"
+                        dy="0.35em"
+                        fill={node.depth === 1 ? '#e2e8f0' : '#64748b'}
+                        class="pointer-events-none select-none"
+                        style={`font-size: ${Math.max(6, getFontSize(node) - 2)}px;`}
+                      >
+                        {node.data.type || `${node.children?.length || 0} items`}
+                      </Text>
+                    {/if}
+                  {/if}
+                </g>
+              {/each}
+            {/snippet}
+          </Pack>
+        </Svg>
+      </Chart>
+    </div>
+  {/if}
 </HierarchyVisualizationBase>
 
 <style>
