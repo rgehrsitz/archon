@@ -1,0 +1,42 @@
+I think youj may be overly complicating this.  Here is how I see it (very simplified without edge cases):
+
+Let's assume that we have 7 columns to display, and we have the focus on the top node of the 7th column:
+
+CW = Component Width (inside width of the entire Miller Column component)
+RW = Remaining Width (used in loop)
+HW = Hidden Width (width of a hidden column)
+PW = Partial Width (width of a partially revealed column)
+FW = Full Width (width of a fully visible column)
+
+With no hovering going on:
+
+if ((NumberOfColumns - 1) * HW) + (1 * FW) > CW then
+  error:  we can't display a single full column plus all of the hidden colummns
+else
+  continue with calculating the widths of the columns to fit the component
+
+RW = CW
+For i = ColumnCount to 1
+  if FW + ((ColumnCount - 1) * HW) <= RW then
+	RW = RW - FW
+	Column(i).width = FW
+  else
+    RW = RW - HW
+	Column(i).width = HW
+
+
+When hovering over a component:
+
+HC = Hovered Column
+For i = HC to ColumnCount
+	if Column(i).width = HW then
+		Column(i).width = PW
+		if i <> HC then //this is not the node being hovered over
+			Column(i).leftEdge = Column(i-1).leftEdge + PW
+	else
+		if Column(i-1).width = PW then //this is the first column after the partially revealed columns
+			Column(i).leftEdge = Column(i-1) + PW
+		else
+			Column(i).leftEdge = Column(i-1) + FW
+
+Thoughts?

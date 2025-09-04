@@ -2,13 +2,15 @@
   import { createEventDispatcher } from 'svelte';
   import { Button } from '../ui/button/index.js';
   import { Input } from '../ui/input/index.js';
+  import VisualizationSwitcher from './VisualizationSwitcher.svelte';
+  import type { VisualizationId } from '$lib/types/visualization.js';
   
   export const projectId: string = undefined!;
-  export let viewMode: 'miller' | 'tree' = 'miller';
+  export let viewMode: VisualizationId = 'miller';
   export let nodePath: any[] = [];
   
   const dispatch = createEventDispatcher<{
-    viewModeChange: { mode: 'miller' | 'tree' };
+    viewModeChange: { mode: VisualizationId };
     search: { query: string };
     snapshot: void;
     sync: void;
@@ -24,9 +26,8 @@
     ...nodePath.map((n, i) => ({ id: n.id, name: n.name || 'Untitled', index: i }))
   ];
   
-  function toggleViewMode() {
-    const newMode = viewMode === 'miller' ? 'tree' : 'miller';
-    dispatch('viewModeChange', { mode: newMode });
+  function handleVisualizationChange(event: CustomEvent) {
+    dispatch('viewModeChange', { mode: event.detail.mode });
   }
   
   function handleSearch() {
@@ -81,17 +82,11 @@
     </kbd>
   </div>
   
-  <!-- View Mode Toggle -->
-  <Button 
-    variant="outline" 
-    size="sm"
-    onclick={toggleViewMode}
-    class="w-24"
-  >
-    {#snippet children()}
-      {viewMode === 'miller' ? '📋 Miller' : '🌳 Tree'}
-    {/snippet}
-  </Button>
+  <!-- Visualization Switcher -->
+  <VisualizationSwitcher
+    currentViewMode={viewMode}
+    on:change={handleVisualizationChange}
+  />
   
   <!-- Actions -->
   <div class="flex items-center gap-2">
