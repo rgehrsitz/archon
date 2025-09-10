@@ -19,6 +19,52 @@ type NodeStore struct {
 	indexManager *index.Manager
 }
 
+// reindexSubtree re-indexes a node and all of its descendants based on current on-disk state.
+// It is safe to call when the indexManager is nil (no-op).
+func (ns *NodeStore) reindexSubtree(rootID string) error {
+    if ns.indexManager == nil {
+        return nil
+    }
+    // Load root node and determine its parent/depth
+    node, err := ns.loader.LoadNode(rootID)
+    if err != nil {
+        return err
+    }
+    parent, err := ns.findParent(rootID)
+    if err != nil {
+        return err
+    }
+    parentID := ""
+    if parent != nil {
+        parentID = parent.ID
+    }
+    depth := ns.calculateDepth(parentID)
+    if err := ns.indexManager.IndexNode(node, parentID, depth); err != nil {
+        return err
+    }
+    return ns.reindexChildren(node, depth)
+}
+
+// reindexChildren recursively re-indexes all descendants given the current node and its depth.
+func (ns *NodeStore) reindexChildren(parentNode *types.Node, parentDepth int) error {
+    if ns.indexManager == nil {
+        return nil
+    }
+    for _, childID := range parentNode.Children {
+        child, err := ns.loader.LoadNode(childID)
+        if err != nil {
+            return err
+        }
+        if err := ns.indexManager.IndexNode(child, parentNode.ID, parentDepth+1); err != nil {
+            return err
+        }
+        if err := ns.reindexChildren(child, parentDepth+1); err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
 // NewNodeStore creates a new node store
 func NewNodeStore(basePath string, indexManager *index.Manager) *NodeStore {
 	return &NodeStore{
@@ -139,13 +185,29 @@ func (ns *NodeStore) CreateNodeWithContext(ctx context.Context, req *types.Creat
 }
 
 func (ns *NodeStore) calculateDepth(parentID string) int {
+	// Root node depth
 	if parentID == "" {
 		return 0
 	}
 	
-	// For now, just return depth 1 for any non-root node
-	// TODO: Implement proper depth calculation by traversing parent chain
-	return 1
+	// Walk up the parent chain to compute depth: depth = parentDepth + 1
+	// Fallback conservatively to 1 if any error occurs while traversing.
+	depth := 1
+	currentID := parentID
+	for currentID != "" {
+		parent, err := ns.findParent(currentID)
+		if err != nil {
+			// On traversal error, return best-effort depth computed so far
+			return depth
+		}
+		if parent == nil {
+			// Reached root
+			break
+		}
+		depth++
+		currentID = parent.ID
+	}
+	return depth
 }
 
 // GetNode retrieves a node by ID
@@ -216,8 +278,28 @@ func (ns *NodeStore) UpdateNode(req *types.UpdateNodeRequest) (*types.Node, erro
 	if err := ns.loader.SaveNode(node); err != nil {
 		return nil, err
 	}
-	
-	return node, nil
+
+    // Incremental index updates
+    if ns.indexManager != nil {
+        // Determine parent and depth for this node
+        parent, _ := ns.findParent(node.ID)
+        parentID := ""
+        if parent != nil {
+            parentID = parent.ID
+        }
+        depth := ns.calculateDepth(parentID)
+        if err := ns.indexManager.IndexNode(node, parentID, depth); err != nil {
+            return nil, err
+        }
+        // If the node was renamed, descendants' paths change; reindex subtree below this node
+        if req.Name != nil && *req.Name != originalName {
+            if err := ns.reindexChildren(node, depth); err != nil {
+                return nil, err
+            }
+        }
+    }
+
+    return node, nil
 }
 
 // DeleteNode deletes a node and all its children
@@ -321,8 +403,30 @@ func (ns *NodeStore) MoveNode(req *types.MoveNodeRequest) error {
 		newParent.Children = append(newParent.Children, req.NodeID)
 	}
 	
-	// Save new parent
-	return ns.loader.SaveNode(newParent)
+    // Save new parent
+    if err := ns.loader.SaveNode(newParent); err != nil {
+        return err
+    }
+
+    // Incremental index updates
+    if ns.indexManager != nil {
+        // Update child counts for both parents in the index
+        if currentParent != nil {
+            if err := ns.indexManager.UpdateNodeChildCount(currentParent.ID, len(currentParent.Children)); err != nil {
+                return err
+            }
+        }
+        if err := ns.indexManager.UpdateNodeChildCount(newParent.ID, len(newParent.Children)); err != nil {
+            return err
+        }
+
+        // Reindex moved node and all descendants to refresh path/parent/depth
+        if err := ns.reindexSubtree(req.NodeID); err != nil {
+            return err
+        }
+    }
+
+    return nil
 }
 
 // ReorderChildren reorders the children of a parent node
@@ -360,7 +464,24 @@ func (ns *NodeStore) ReorderChildren(req *types.ReorderChildrenRequest) error {
 	// Update parent's children order
 	parent.Children = req.OrderedChildIDs
 	
-	return ns.loader.SaveNode(parent)
+	if err := ns.loader.SaveNode(parent); err != nil {
+        return err
+    }
+    
+    // Incremental index update: reindex the parent to refresh updated_at/child_count
+    if ns.indexManager != nil {
+        grandparent, _ := ns.findParent(parent.ID)
+        parentID := ""
+        if grandparent != nil {
+            parentID = grandparent.ID
+        }
+        depth := ns.calculateDepth(parentID)
+        if err := ns.indexManager.IndexNode(parent, parentID, depth); err != nil {
+            return err
+        }
+    }
+    
+    return nil
 }
 
 // ListChildren returns all direct children of a node

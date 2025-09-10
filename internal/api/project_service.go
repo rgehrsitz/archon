@@ -152,6 +152,22 @@ func (s *ProjectService) OpenProject(path string) *types.Project {
 	}
 	
 	logging.GetLogger().Info().Str("path", cleanPath).Str("rootId", project.RootID).Int("schemaVersion", project.SchemaVersion).Msg("Project opened successfully")
+
+	// After a successful open, ensure index health. If unhealthy, schedule a background rebuild.
+	if s.currentProject != nil && s.currentProject.IndexManager != nil && !s.readOnly {
+		if err := s.currentProject.IndexManager.Health(); err != nil {
+			logging.GetLogger().Warn().Err(err).Msg("Search index unhealthy; scheduling background rebuild")
+			go func(ps *ProjectService) {
+				idx := NewIndexService(ps)
+				if env := idx.Rebuild(context.Background()); env.Code != "" {
+					logging.GetLogger().Error().Str("code", env.Code).Str("message", env.Message).Interface("details", env.Details).Msg("Background index rebuild failed")
+				} else {
+					logging.GetLogger().Info().Msg("Background index rebuild completed successfully")
+				}
+			}(s)
+		}
+	}
+
 	return project
 }
 
