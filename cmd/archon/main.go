@@ -27,13 +27,22 @@ func main() {
 	)
 	flag.StringVar(&projectPath, "project", "", "Path to an Archon project (optional)")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Archon CLI (MVP)\n")
-		fmt.Fprintf(os.Stderr, "Usage: archon [--project path] <command> [args]\n")
-		fmt.Fprintf(os.Stderr, "Commands: open | index | snapshot | diff | merge | attachment | export (stubs)\n")
-		fmt.Fprintf(os.Stderr, "\nIndex usage:\n  archon --project <path> index <rebuild|status> [--verbose]\n")
-		fmt.Fprintf(os.Stderr, "\nDiff usage:\n  archon --project <path> diff [--summary-only] [--json] [--semantic] <from> <to>\n")
-		fmt.Fprintf(os.Stderr, "\nMerge usage:\n  archon --project <path> merge [--dry-run] [--json] <base> <ours> <theirs>\n")
-		fmt.Fprintf(os.Stderr, "\nAttachment usage:\n  archon --project <path> attachment <add|list|get|remove|verify|gc> [args]\n")
+		fmt.Fprintf(os.Stderr, "Archon CLI - Command Line Interface for Archon Projects\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: archon [--project path] <command> [args]\n\n")
+		fmt.Fprintf(os.Stderr, "Commands:\n")
+		fmt.Fprintf(os.Stderr, "  index      Manage search index (rebuild, status)\n")
+		fmt.Fprintf(os.Stderr, "  snapshot   Manage project snapshots (create, list, get, restore)\n")
+		fmt.Fprintf(os.Stderr, "  diff       Compare versions (textual or semantic)\n")
+		fmt.Fprintf(os.Stderr, "  merge      Three-way merge operations\n")
+		fmt.Fprintf(os.Stderr, "  attachment Manage file attachments (add, list, get, remove, verify, gc)\n")
+		fmt.Fprintf(os.Stderr, "  open       Open project in GUI (stub)\n")
+		fmt.Fprintf(os.Stderr, "  export     Export project data (stub)\n\n")
+		fmt.Fprintf(os.Stderr, "Examples:\n")
+		fmt.Fprintf(os.Stderr, "  archon --project /path/to/project index rebuild --verbose\n")
+		fmt.Fprintf(os.Stderr, "  archon --project /path/to/project snapshot create \"v1.0\" \"Initial release\"\n")
+		fmt.Fprintf(os.Stderr, "  archon --project /path/to/project diff --semantic HEAD~1 HEAD\n")
+		fmt.Fprintf(os.Stderr, "  archon --project /path/to/project attachment list\n\n")
+		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -78,7 +87,7 @@ func main() {
 
 func runSnapshot(projectPath string, args []string) error {
 	if projectPath == "" {
-		return fmt.Errorf("--project path is required")
+		return fmt.Errorf("--project path is required for snapshot operations")
 	}
 	if len(args) == 0 {
 		return fmt.Errorf("usage: archon --project <path> snapshot <create|list|get|restore> [args]")
@@ -145,7 +154,7 @@ func runSnapshot(projectPath string, args []string) error {
 
 func runDiff(projectPath string, args []string) error {
 	if projectPath == "" {
-		return fmt.Errorf("--project path is required")
+		return fmt.Errorf("--project path is required for diff operations")
 	}
 	// Subcommand flags
 	fs := flag.NewFlagSet("diff", flag.ContinueOnError)
@@ -341,7 +350,7 @@ func summarizeSemantic(changes []semdiff.Change) semdiff.Summary {
 
 func runMerge(projectPath string, args []string) error {
 	if projectPath == "" {
-		return fmt.Errorf("--project path is required")
+		return fmt.Errorf("--project path is required for merge operations")
 	}
 
 	// Subcommand flags
@@ -452,7 +461,7 @@ func printChanges(changes []semdiff.Change, label string) {
 
 func runAttachment(projectPath string, args []string) error {
 	if projectPath == "" {
-		return fmt.Errorf("--project path is required")
+		return fmt.Errorf("--project path is required for attachment operations")
 	}
 	if len(args) == 0 {
 		return fmt.Errorf("usage: archon --project <path> attachment <add|list|get|remove|verify|gc> [args]")
@@ -810,7 +819,7 @@ func runAttachmentGCDryRun(attachStore *store.AttachmentStore) error {
 
 func runIndex(projectPath string, args []string) error {
 	if projectPath == "" {
-		return fmt.Errorf("--project path is required")
+		return fmt.Errorf("--project path is required for index operations")
 	}
 	if len(args) == 0 {
 		return fmt.Errorf("usage: archon --project <path> index <rebuild|status> [args]")
@@ -880,12 +889,6 @@ func runIndexStatus(projectPath string, args []string) error {
 		return fmt.Errorf("failed to create index manager: %w", err)
 	}
 	defer indexManager.Close()
-
-	// Check if index is disabled
-	if indexManager.IsDisabled() {
-		fmt.Println("Index status: DISABLED")
-		return nil
-	}
 
 	// Get schema version
 	version, err := indexManager.GetSchemaVersion()

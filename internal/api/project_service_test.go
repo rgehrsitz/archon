@@ -31,7 +31,6 @@ func seedProject(t *testing.T, base string, schema int) {
 
 // TestMain disables the SQLite index and file logging for this package's tests to avoid requiring FTS5 and file locking issues.
 func TestMain(m *testing.M) {
-	os.Setenv("ARCHON_DISABLE_INDEX", "1")
 	os.Setenv("ARCHON_DISABLE_FILE_LOGGING", "1")
 	os.Exit(m.Run())
 }

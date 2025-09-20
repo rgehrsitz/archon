@@ -1,4 +1,7 @@
 {
     "go.buildTags": "fts5",
-    "go.testTags": "fts5"
+    "go.testTags": "fts5",
+    "go.toolsEnvVars": {
+        "CGO_ENABLED": "1"
+    }
 }

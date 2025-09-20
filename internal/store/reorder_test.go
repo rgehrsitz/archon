@@ -1,7 +1,6 @@
 package store
 
 import (
-	"os"
 	"testing"
 
 	"github.com/rgehrsitz/archon/internal/types"
@@ -9,8 +8,6 @@ import (
 
 // TestReorderChildren_NoIndex ensures ReorderChildren returns successfully when index is disabled.
 func TestReorderChildren_NoIndex(t *testing.T) {
-	os.Setenv("ARCHON_DISABLE_INDEX", "1")
-	t.Cleanup(func() { os.Unsetenv("ARCHON_DISABLE_INDEX") })
 
 	tmp := t.TempDir()
 	ps, err := NewProjectStore(tmp)
@@ -28,8 +25,8 @@ func TestReorderChildren_NoIndex(t *testing.T) {
 	ns := NewNodeStore(tmp, ps.IndexManager)
 
 	// Create two children under root
-	a, _ := ns.CreateNode(&types.CreateNodeRequest{ParentID: proj.RootID, Name: "A", Properties: map[string]types.Property{}, Description: "",})
-	b, _ := ns.CreateNode(&types.CreateNodeRequest{ParentID: proj.RootID, Name: "B", Properties: map[string]types.Property{}, Description: "",})
+	a, _ := ns.CreateNode(&types.CreateNodeRequest{ParentID: proj.RootID, Name: "A", Properties: map[string]types.Property{}, Description: ""})
+	b, _ := ns.CreateNode(&types.CreateNodeRequest{ParentID: proj.RootID, Name: "B", Properties: map[string]types.Property{}, Description: ""})
 	if a == nil || b == nil {
 		t.Fatalf("expected children to be created")
 	}
@@ -45,7 +42,6 @@ func TestReorderChildren_NoIndex(t *testing.T) {
 // when index manager is enabled (skips if FTS5/SQLite not available on platform).
 func TestReorderChildren_IndexEnabled(t *testing.T) {
 	// Ensure index is not disabled by env
-	os.Unsetenv("ARCHON_DISABLE_INDEX")
 
 	tmp := t.TempDir()
 	ps, err := NewProjectStore(tmp)

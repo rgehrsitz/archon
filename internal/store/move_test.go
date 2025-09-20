@@ -1,7 +1,6 @@
 package store
 
 import (
-	"os"
 	"testing"
 
 	"github.com/rgehrsitz/archon/internal/index/sqlite"
@@ -13,7 +12,6 @@ import (
 // Skips when the index is disabled/unavailable on the platform.
 func TestMoveNode_IndexEnabled_ReindexesSubtree(t *testing.T) {
 	// Ensure index not disabled by env
-	os.Unsetenv("ARCHON_DISABLE_INDEX")
 
 	tmp := t.TempDir()
 	ps, err := NewProjectStore(tmp)

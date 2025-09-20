@@ -33,7 +33,7 @@ SQLite is ubiquitous, lightweight, and fast. Keeping the index rebuildable avoid
 
 - Positive: Instant search/filter at scale; no external services.
 - Negative: Extra file and update path; need to handle index corruption gracefully.
-- Operational: Uses modernc.org/sqlite which guarantees FTS5 support across all platforms; tests can set `ARCHON_DISABLE_INDEX=1` to disable indexing if needed.
+- Operational: Uses modernc.org/sqlite which guarantees FTS5 support across all platforms.
 - Follow-ups: Tokenization for non-Latin scripts; collation tuning; property-specific indexes by domain if needed.
 
 ## Implementation Notes

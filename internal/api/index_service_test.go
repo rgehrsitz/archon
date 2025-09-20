@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -13,12 +12,8 @@ import (
 )
 
 // TestIndexServiceRebuild ensures Rebuild() completes without error and
-// correctly walks the hierarchy to compute depths. The test sets
-// ARCHON_DISABLE_INDEX=1 to avoid requiring FTS5 in the environment.
+// correctly walks the hierarchy to compute depths.
 func TestIndexServiceRebuild(t *testing.T) {
-	// Disable index implementation details (no-op manager) for portability
-	os.Setenv("ARCHON_DISABLE_INDEX", "1")
-	t.Cleanup(func() { os.Unsetenv("ARCHON_DISABLE_INDEX") })
 
 	tmp := t.TempDir()
 	ps := NewProjectService()

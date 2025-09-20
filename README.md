@@ -15,7 +15,6 @@ Archon is a desktop knowledge workbench for hierarchical projects with first-cla
 Note for developers:
 
 - Archon uses modernc.org/sqlite which guarantees FTS5 support across all platforms. Search indexing is always available.
-- You can set `ARCHON_DISABLE_INDEX=1` to disable indexing in tests if needed.
 - Snapshots are implemented as commit + immutable tag pairs; tags are created via the Git CLI and listed via go-git for speed.
 
 ## Quick Start
