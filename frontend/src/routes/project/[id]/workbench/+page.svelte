@@ -3,6 +3,9 @@
   import { onMount } from 'svelte';
   import InspectorPanel from '$lib/components/workbench/InspectorPanel.svelte';
   import CommandBar from '$lib/components/workbench/CommandBar.svelte';
+  import ProjectHeader from '$lib/components/project/ProjectHeader.svelte';
+  import ProjectSettingsDialog from '$lib/components/project/ProjectSettingsDialog.svelte';
+  import RenameProjectDialog from '$lib/components/project/RenameProjectDialog.svelte';
   import { visualizationRegistry } from '$lib/services/visualizationRegistry.js';
   import type { VisualizationId } from '$lib/types/visualization.js';
   
@@ -23,6 +26,10 @@
   
   // Derived selected node ID for passing to child components
   $: selectedNodeId = selectedNode?.id || null;
+  
+  // Dialog states
+  let showProjectSettings = false;
+  let showRenameDialog = false;
   
   // Handle node selection from both views
   function handleNodeSelect(event: CustomEvent) {
@@ -68,6 +75,30 @@
     selectedNodePath = newPath;
     selectedNode = newPath[newPath.length - 1] || null;
   }
+  
+  // Project action handlers
+  function handleOpenSettings() {
+    showProjectSettings = true;
+  }
+  
+  function handleRenameProject() {
+    showRenameDialog = true;
+  }
+  
+  function handleCloseProject() {
+    // TODO: Implement project close functionality
+    console.log('Close project requested');
+  }
+  
+  function handleProjectSettingsSaved(event: CustomEvent) {
+    console.log('Project settings saved:', event.detail);
+    showProjectSettings = false;
+  }
+  
+  function handleProjectRenamed(event: CustomEvent) {
+    console.log('Project renamed:', event.detail);
+    showRenameDialog = false;
+  }
 </script>
 
 <svelte:head>
@@ -75,6 +106,14 @@
 </svelte:head>
 
 <div class="h-full flex flex-col bg-background">
+  <!-- Project Header -->
+  <ProjectHeader 
+    {projectId}
+    on:openSettings={handleOpenSettings}
+    on:renameProject={handleRenameProject}
+    on:closeProject={handleCloseProject}
+  />
+  
   <!-- Command Bar -->
   <CommandBar 
     {projectId}
@@ -130,4 +169,17 @@
       class="w-80 border-l"
     />
   </div>
+  
+  <!-- Project Dialogs -->
+  <ProjectSettingsDialog 
+    bind:open={showProjectSettings}
+    on:close={() => showProjectSettings = false}
+    on:saved={handleProjectSettingsSaved}
+  />
+  
+  <RenameProjectDialog 
+    bind:open={showRenameDialog}
+    on:close={() => showRenameDialog = false}
+    on:renamed={handleProjectRenamed}
+  />
 </div>

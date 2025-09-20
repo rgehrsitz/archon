@@ -1,31 +1,51 @@
 <script lang="ts">
   import { params } from 'svelte-spa-router';
-  import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
-  import { Button } from '$lib/components/ui/button';
+  import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card/index.js';
+  import { Button } from '$lib/components/ui/button/index.js';
+  import ProjectHeader from '$lib/components/project/ProjectHeader.svelte';
+  import ProjectSettingsDialog from '$lib/components/project/ProjectSettingsDialog.svelte';
+  import RenameProjectDialog from '$lib/components/project/RenameProjectDialog.svelte';
   
   // Get project ID from route params
   $: projectId = $params?.id || '';
+  
+  // Dialog states
+  let showProjectSettings = false;
+  let showRenameDialog = false;
+  
+  // Project action handlers
+  function handleOpenSettings() {
+    showProjectSettings = true;
+  }
+  
+  function handleRenameProject() {
+    showRenameDialog = true;
+  }
+  
+  function handleCloseProject() {
+    // TODO: Implement project close functionality
+    console.log('Close project requested');
+  }
+  
+  function handleProjectSettingsSaved(event: CustomEvent) {
+    console.log('Project settings saved:', event.detail);
+    showProjectSettings = false;
+  }
+  
+  function handleProjectRenamed(event: CustomEvent) {
+    console.log('Project renamed:', event.detail);
+    showRenameDialog = false;
+  }
 </script>
 
 <div class="min-h-screen bg-background text-foreground">
-  <!-- Header -->
-  <header class="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-    <div class="flex h-14 items-center px-4">
-      <div class="mr-4 flex">
-        <a class="mr-6 flex items-center space-x-2" href="#/">
-          <div class="h-6 w-6 rounded bg-primary"></div>
-          <span class="hidden font-bold sm:inline-block">Archon</span>
-        </a>
-      </div>
-      <div class="flex flex-1 items-center space-x-2">
-        <h1 class="text-lg font-semibold">Project Dashboard</h1>
-      </div>
-      <div class="flex items-center space-x-2">
-        <Button variant="outline" size="sm">Settings</Button>
-        <Button size="sm">Open Workbench</Button>
-      </div>
-    </div>
-  </header>
+  <!-- Project Header -->
+  <ProjectHeader 
+    {projectId}
+    on:openSettings={handleOpenSettings}
+    on:renameProject={handleRenameProject}
+    on:closeProject={handleCloseProject}
+  />
 
   <!-- Main Content -->
   <main class="container mx-auto p-6 space-y-6">
@@ -135,4 +155,17 @@
       </Card>
     </div>
   </main>
+  
+  <!-- Project Dialogs -->
+  <ProjectSettingsDialog 
+    bind:open={showProjectSettings}
+    on:close={() => showProjectSettings = false}
+    on:saved={handleProjectSettingsSaved}
+  />
+  
+  <RenameProjectDialog 
+    bind:open={showRenameDialog}
+    on:close={() => showRenameDialog = false}
+    on:renamed={handleProjectRenamed}
+  />
 </div>

@@ -111,7 +111,9 @@
   $: {
     const currentPathKey = selectedNodePath.map((n) => n.id).join('->');
     const displayedKey = currentDisplayedPathKey();
-    if (!isReconstructingFromPath && currentPathKey && currentPathKey !== displayedKey && currentPathKey !== lastProcessedPath) {
+    
+    // Always reconstruct if the path has changed and we're not already reconstructing
+    if (!isReconstructingFromPath && currentPathKey !== lastProcessedPath) {
       lastProcessedPath = currentPathKey;
       reconstructColumnsFromPath(selectedNodePath);
     }
@@ -153,6 +155,9 @@
           }
         }
       }
+
+      // Truncate columns to match the path length
+      columns = columns.slice(0, path.length);
 
       // After building, select the final node in its column (do not dispatch)
       const lastNode = path[path.length - 1];
