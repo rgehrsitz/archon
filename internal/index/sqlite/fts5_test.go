@@ -5,16 +5,16 @@ import (
 	"strings"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // skipIfNoFTS5 skips the test if the SQLite driver does not have FTS5 enabled.
 func skipIfNoFTS5(t *testing.T) {
 	t.Helper()
-	conn, err := sql.Open("sqlite3", ":memory:")
+	conn, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
-		// If we cannot even open, skip to avoid cascading failures in environments without sqlite3
-		t.Skipf("sqlite3 not available: %v", err)
+		// If we cannot even open, skip to avoid cascading failures in environments without sqlite
+		t.Skipf("sqlite not available: %v", err)
 		return
 	}
 	defer conn.Close()

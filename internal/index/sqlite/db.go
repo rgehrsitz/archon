@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 //go:embed schema.sql
@@ -25,7 +25,7 @@ func Open(projectRoot string) (*DB, error) {
 	}
 
 	dbPath := filepath.Join(indexDir, "archon.db")
-	conn, err := sql.Open("sqlite3", dbPath+"?_fk=1&_journal_mode=WAL")
+	conn, err := sql.Open("sqlite", dbPath+"?_fk=1&_journal_mode=WAL")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}

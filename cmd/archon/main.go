@@ -14,6 +14,8 @@ import (
 
 	semdiff "github.com/rgehrsitz/archon/internal/diff/semantic"
 	"github.com/rgehrsitz/archon/internal/git"
+	"github.com/rgehrsitz/archon/internal/index"
+	"github.com/rgehrsitz/archon/internal/index/sqlite"
 	"github.com/rgehrsitz/archon/internal/merge"
 	"github.com/rgehrsitz/archon/internal/snapshot"
 	"github.com/rgehrsitz/archon/internal/store"
@@ -28,6 +30,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Archon CLI (MVP)\n")
 		fmt.Fprintf(os.Stderr, "Usage: archon [--project path] <command> [args]\n")
 		fmt.Fprintf(os.Stderr, "Commands: open | index | snapshot | diff | merge | attachment | export (stubs)\n")
+		fmt.Fprintf(os.Stderr, "\nIndex usage:\n  archon --project <path> index <rebuild|status> [--verbose]\n")
 		fmt.Fprintf(os.Stderr, "\nDiff usage:\n  archon --project <path> diff [--summary-only] [--json] [--semantic] <from> <to>\n")
 		fmt.Fprintf(os.Stderr, "\nMerge usage:\n  archon --project <path> merge [--dry-run] [--json] <base> <ours> <theirs>\n")
 		fmt.Fprintf(os.Stderr, "\nAttachment usage:\n  archon --project <path> attachment <add|list|get|remove|verify|gc> [args]\n")
@@ -60,7 +63,12 @@ func main() {
 			fmt.Fprintln(os.Stderr, "attachment:", err)
 			os.Exit(1)
 		}
-	case "open", "index", "export":
+	case "index":
+		if err := runIndex(projectPath, flag.Args()[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, "index:", err)
+			os.Exit(1)
+		}
+	case "open", "export":
 		fmt.Println("(stub)", cmd, projectPath)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", cmd)
@@ -369,19 +377,19 @@ func runMerge(projectPath string, args []string) error {
 	conflicts := len(res.Conflicts)
 
 	fmt.Printf("Three-way merge: %s <- %s + %s\n", base, ours, theirs)
-	fmt.Printf("Non-conflicting changes: %d (ours: %d, theirs: %d)\n", 
+	fmt.Printf("Non-conflicting changes: %d (ours: %d, theirs: %d)\n",
 		totalChanges, len(res.OursOnly), len(res.TheirsOnly))
-	
+
 	if conflicts > 0 {
 		fmt.Printf("Conflicts detected: %d\n", conflicts)
-		
+
 		if *verbose {
 			fmt.Println("\nConflicts:")
 			for _, conflict := range res.Conflicts {
 				fmt.Printf("  - %s: %s (%s)\n", conflict.NodeID, conflict.Field, conflict.Rule)
 			}
 		}
-		
+
 		fmt.Println("\nResolve conflicts manually before applying changes.")
 		return fmt.Errorf("merge has conflicts")
 	}
@@ -407,7 +415,7 @@ func runMerge(projectPath string, args []string) error {
 	}
 
 	fmt.Printf("Successfully applied %d changes\n", len(res.Applied))
-	
+
 	if *verbose {
 		fmt.Println("\nApplied changes:")
 		printChanges(res.Applied, "Applied")
@@ -420,7 +428,7 @@ func printChanges(changes []semdiff.Change, label string) {
 	if len(changes) == 0 {
 		return
 	}
-	
+
 	fmt.Printf("\n%s changes:\n", label)
 	for _, change := range changes {
 		switch change.Type {
@@ -482,20 +490,20 @@ func runAttachmentAdd(attachStore *store.AttachmentStore, args []string) error {
 	fs := flag.NewFlagSet("attachment add", flag.ContinueOnError)
 	jsonOut := fs.Bool("json", false, "Output machine-readable JSON")
 	name := fs.String("name", "", "Override filename for the attachment")
-	
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	
+
 	rem := fs.Args()
 	if len(rem) == 0 {
 		return fmt.Errorf("usage: archon attachment add [--json] [--name filename] <file-path|->\nUse '-' to read from stdin")
 	}
-	
+
 	filePath := rem[0]
 	var reader io.Reader
 	var filename string
-	
+
 	if filePath == "-" {
 		reader = os.Stdin
 		filename = "stdin"
@@ -514,16 +522,16 @@ func runAttachmentAdd(attachStore *store.AttachmentStore, args []string) error {
 			filename = *name
 		}
 	}
-	
+
 	attachment, err := attachStore.Store(reader, filename)
 	if err != nil {
 		return fmt.Errorf("failed to store attachment: %w", err)
 	}
-	
+
 	if *jsonOut {
 		return json.NewEncoder(os.Stdout).Encode(attachment)
 	}
-	
+
 	fmt.Printf("Stored attachment: %s (%d bytes)\n", attachment.Hash, attachment.Size)
 	fmt.Printf("Filename: %s\n", attachment.Filename)
 	return nil
@@ -533,29 +541,29 @@ func runAttachmentList(attachStore *store.AttachmentStore, args []string) error 
 	// Subcommand flags
 	fs := flag.NewFlagSet("attachment list", flag.ContinueOnError)
 	jsonOut := fs.Bool("json", false, "Output machine-readable JSON")
-	
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	
+
 	attachments, err := attachStore.List()
 	if err != nil {
 		return fmt.Errorf("failed to list attachments: %w", err)
 	}
-	
+
 	if *jsonOut {
 		return json.NewEncoder(os.Stdout).Encode(attachments)
 	}
-	
+
 	if len(attachments) == 0 {
 		fmt.Println("No attachments found")
 		return nil
 	}
-	
+
 	fmt.Printf("Found %d attachment(s):\n", len(attachments))
 	fmt.Printf("%-64s %-10s %-5s %s\n", "HASH", "SIZE", "LFS", "STORED")
 	fmt.Println(strings.Repeat("-", 90))
-	
+
 	for _, att := range attachments {
 		lfsFlag := " "
 		if att.IsLFS {
@@ -570,26 +578,26 @@ func runAttachmentGet(attachStore *store.AttachmentStore, args []string) error {
 	// Subcommand flags
 	fs := flag.NewFlagSet("attachment get", flag.ContinueOnError)
 	output := fs.String("output", "", "Output file path (default: stdout)")
-	
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	
+
 	rem := fs.Args()
 	if len(rem) == 0 {
 		return fmt.Errorf("usage: archon attachment get [--output file] <hash>")
 	}
-	
+
 	hash := rem[0]
 	reader, err := attachStore.Retrieve(hash)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve attachment: %w", err)
 	}
 	defer reader.Close()
-	
+
 	var writer io.Writer = os.Stdout
 	var outputFile *os.File
-	
+
 	if *output != "" {
 		outputFile, err = os.Create(*output)
 		if err != nil {
@@ -598,16 +606,16 @@ func runAttachmentGet(attachStore *store.AttachmentStore, args []string) error {
 		defer outputFile.Close()
 		writer = outputFile
 	}
-	
+
 	written, err := io.Copy(writer, reader)
 	if err != nil {
 		return fmt.Errorf("failed to copy attachment data: %w", err)
 	}
-	
+
 	if *output != "" {
 		fmt.Printf("Retrieved attachment %s to %s (%d bytes)\n", hash, *output, written)
 	}
-	
+
 	return nil
 }
 
@@ -615,26 +623,26 @@ func runAttachmentRemove(attachStore *store.AttachmentStore, args []string) erro
 	// Subcommand flags
 	fs := flag.NewFlagSet("attachment remove", flag.ContinueOnError)
 	force := fs.Bool("force", false, "Skip confirmation prompts")
-	
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	
+
 	rem := fs.Args()
 	if len(rem) == 0 {
 		return fmt.Errorf("usage: archon attachment remove [--force] <hash>")
 	}
-	
+
 	hash := rem[0]
-	
+
 	// Get info first to show what we're deleting
 	info, err := attachStore.GetInfo(hash)
 	if err != nil {
 		return fmt.Errorf("failed to get attachment info: %w", err)
 	}
-	
+
 	if !*force {
-		fmt.Printf("Delete attachment %s (%d bytes, stored %s)? [y/N]: ", 
+		fmt.Printf("Delete attachment %s (%d bytes, stored %s)? [y/N]: ",
 			hash, info.Size, info.StoredAt.Format("2006-01-02 15:04"))
 		var response string
 		fmt.Scanln(&response)
@@ -643,11 +651,11 @@ func runAttachmentRemove(attachStore *store.AttachmentStore, args []string) erro
 			return nil
 		}
 	}
-	
+
 	if err := attachStore.Delete(hash); err != nil {
 		return fmt.Errorf("failed to delete attachment: %w", err)
 	}
-	
+
 	fmt.Printf("Deleted attachment: %s\n", hash)
 	return nil
 }
@@ -656,22 +664,22 @@ func runAttachmentVerify(attachStore *store.AttachmentStore, args []string) erro
 	// Subcommand flags
 	fs := flag.NewFlagSet("attachment verify", flag.ContinueOnError)
 	all := fs.Bool("all", false, "Verify all attachments")
-	
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	
+
 	rem := fs.Args()
-	
+
 	if *all {
 		attachments, err := attachStore.List()
 		if err != nil {
 			return fmt.Errorf("failed to list attachments: %w", err)
 		}
-		
+
 		var failed []string
 		fmt.Printf("Verifying %d attachment(s)...\n", len(attachments))
-		
+
 		for _, att := range attachments {
 			if err := attachStore.Verify(att.Hash); err != nil {
 				fmt.Printf("FAIL %s: %v\n", att.Hash, err)
@@ -680,19 +688,19 @@ func runAttachmentVerify(attachStore *store.AttachmentStore, args []string) erro
 				fmt.Printf("OK   %s\n", att.Hash)
 			}
 		}
-		
+
 		if len(failed) > 0 {
 			return fmt.Errorf("verification failed for %d attachment(s)", len(failed))
 		}
-		
+
 		fmt.Println("All attachments verified successfully")
 		return nil
 	}
-	
+
 	if len(rem) == 0 {
 		return fmt.Errorf("usage: archon attachment verify [--all] [hash...]")
 	}
-	
+
 	var failed []string
 	for _, hash := range rem {
 		if err := attachStore.Verify(hash); err != nil {
@@ -702,11 +710,11 @@ func runAttachmentVerify(attachStore *store.AttachmentStore, args []string) erro
 			fmt.Printf("OK   %s\n", hash)
 		}
 	}
-	
+
 	if len(failed) > 0 {
 		return fmt.Errorf("verification failed for %d attachment(s)", len(failed))
 	}
-	
+
 	return nil
 }
 
@@ -714,28 +722,28 @@ func runAttachmentGC(attachStore *store.AttachmentStore, args []string) error {
 	// Subcommand flags
 	fs := flag.NewFlagSet("attachment gc", flag.ContinueOnError)
 	dryRun := fs.Bool("dry-run", false, "Show what would be deleted without actually deleting")
-	
+
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	
+
 	if *dryRun {
 		// For dry run, we need to simulate the process
 		return runAttachmentGCDryRun(attachStore)
 	}
-	
+
 	// Real garbage collection - scan project and delete unreferenced attachments
 	deleted, err := attachStore.GarbageCollectProject(attachStore.GetBasePath())
 	if err != nil {
 		return fmt.Errorf("garbage collection failed: %w", err)
 	}
-	
+
 	if deleted == 0 {
 		fmt.Println("No unreferenced attachments found")
 	} else {
 		fmt.Printf("Deleted %d unreferenced attachment(s)\n", deleted)
 	}
-	
+
 	return nil
 }
 
@@ -745,14 +753,14 @@ func runAttachmentGCDryRun(attachStore *store.AttachmentStore) error {
 	if err != nil {
 		return fmt.Errorf("failed to list stored attachments: %w", err)
 	}
-	
+
 	// Create a loader to scan all project nodes
 	loader := store.NewLoader(attachStore.GetBasePath())
 	nodeFiles, err := loader.ListNodeFiles()
 	if err != nil {
 		return fmt.Errorf("failed to list project nodes: %w", err)
 	}
-	
+
 	// Collect all referenced attachment hashes
 	referenced := make(map[string]bool)
 	for _, nodeFile := range nodeFiles {
@@ -761,13 +769,13 @@ func runAttachmentGCDryRun(attachStore *store.AttachmentStore) error {
 		if err != nil {
 			continue
 		}
-		
+
 		hashes := attachStore.GetReferencedHashes(node)
 		for _, hash := range hashes {
 			referenced[hash] = true
 		}
 	}
-	
+
 	// Find unreferenced attachments
 	var unreferenced []*store.AttachmentInfo
 	for _, attachment := range allAttachments {
@@ -775,27 +783,153 @@ func runAttachmentGCDryRun(attachStore *store.AttachmentStore) error {
 			unreferenced = append(unreferenced, attachment)
 		}
 	}
-	
+
 	fmt.Printf("Garbage collection (dry-run) - found %d total attachment(s)\n", len(allAttachments))
 	fmt.Printf("Referenced attachments: %d\n", len(referenced))
 	fmt.Printf("Unreferenced attachments: %d\n", len(unreferenced))
-	
+
 	if len(unreferenced) > 0 {
 		fmt.Println("\nWould delete the following unreferenced attachments:")
 		fmt.Printf("%-64s %-10s %s\n", "HASH", "SIZE", "STORED")
 		fmt.Println(strings.Repeat("-", 85))
-		
+
 		var totalSize int64
 		for _, att := range unreferenced {
 			fmt.Printf("%-64s %-10d %s\n", att.Hash, att.Size, att.StoredAt.Format("2006-01-02 15:04"))
 			totalSize += att.Size
 		}
-		
+
 		fmt.Printf("\nTotal size to be freed: %d bytes\n", totalSize)
 		fmt.Println("Run without --dry-run to actually delete these attachments")
 	} else {
 		fmt.Println("No unreferenced attachments to delete")
 	}
-	
+
+	return nil
+}
+
+func runIndex(projectPath string, args []string) error {
+	if projectPath == "" {
+		return fmt.Errorf("--project path is required")
+	}
+	if len(args) == 0 {
+		return fmt.Errorf("usage: archon --project <path> index <rebuild|status> [args]")
+	}
+
+	sub := args[0]
+	switch sub {
+	case "rebuild":
+		return runIndexRebuild(projectPath, args[1:])
+	case "status":
+		return runIndexStatus(projectPath, args[1:])
+	default:
+		return fmt.Errorf("unknown index subcommand: %s", sub)
+	}
+}
+
+func runIndexRebuild(projectPath string, args []string) error {
+	// Subcommand flags
+	fs := flag.NewFlagSet("index rebuild", flag.ContinueOnError)
+	verbose := fs.Bool("verbose", false, "Show detailed progress information")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	// Create index manager
+	indexManager, err := index.NewManager(projectPath)
+	if err != nil {
+		return fmt.Errorf("failed to create index manager: %w", err)
+	}
+	defer indexManager.Close()
+
+	// Create loader to scan all nodes
+	loader := store.NewLoader(projectPath)
+
+	// Get project to find root node
+	project, err := loader.LoadProject()
+	if err != nil {
+		return fmt.Errorf("failed to load project: %w", err)
+	}
+
+	// Load all nodes with their context
+	var nodesWithContext []sqlite.NodeWithContext
+	err = loadAllNodesWithContext(loader, project.RootID, "", 0, &nodesWithContext, *verbose)
+	if err != nil {
+		return fmt.Errorf("failed to load nodes: %w", err)
+	}
+
+	if *verbose {
+		fmt.Printf("Rebuilding index with %d nodes...\n", len(nodesWithContext))
+	}
+
+	// Rebuild the index
+	err = indexManager.RebuildIndex(nodesWithContext)
+	if err != nil {
+		return fmt.Errorf("failed to rebuild index: %w", err)
+	}
+
+	fmt.Printf("Index rebuilt successfully with %d nodes\n", len(nodesWithContext))
+	return nil
+}
+
+func runIndexStatus(projectPath string, args []string) error {
+	// Create index manager
+	indexManager, err := index.NewManager(projectPath)
+	if err != nil {
+		return fmt.Errorf("failed to create index manager: %w", err)
+	}
+	defer indexManager.Close()
+
+	// Check if index is disabled
+	if indexManager.IsDisabled() {
+		fmt.Println("Index status: DISABLED")
+		return nil
+	}
+
+	// Get schema version
+	version, err := indexManager.GetSchemaVersion()
+	if err != nil {
+		return fmt.Errorf("failed to get schema version: %w", err)
+	}
+
+	// Check health
+	err = indexManager.Health()
+	if err != nil {
+		fmt.Printf("Index status: UNHEALTHY (schema version: %s)\n", version)
+		return fmt.Errorf("index health check failed: %w", err)
+	}
+
+	fmt.Printf("Index status: HEALTHY (schema version: %s)\n", version)
+	return nil
+}
+
+// loadAllNodesWithContext recursively loads all nodes with their context for index rebuilding
+func loadAllNodesWithContext(loader *store.Loader, nodeID, parentID string, depth int, nodes *[]sqlite.NodeWithContext, verbose bool) error {
+	// Load the current node
+	node, err := loader.LoadNode(nodeID)
+	if err != nil {
+		return fmt.Errorf("failed to load node %s: %w", nodeID, err)
+	}
+
+	// Add to the list
+	*nodes = append(*nodes, sqlite.NodeWithContext{
+		Node:     node,
+		ParentID: parentID,
+		Depth:    depth,
+	})
+
+	if verbose {
+		fmt.Printf("Loaded node: %s (depth: %d)\n", node.Name, depth)
+	}
+
+	// Recursively load children
+	for _, childID := range node.Children {
+		err = loadAllNodesWithContext(loader, childID, nodeID, depth+1, nodes, verbose)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

@@ -17,12 +17,12 @@ var (
 func Initialize(config *Config) error {
 	loggerMutex.Lock()
 	defer loggerMutex.Unlock()
-	
+
 	logger, err := NewLogger(config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize logger: %w", err)
 	}
-	
+
 	globalLogger = logger
 	return nil
 }
@@ -38,7 +38,7 @@ func InitializeDefault(projectRoot string) error {
 func GetLogger() *Logger {
 	loggerMutex.RLock()
 	defer loggerMutex.RUnlock()
-	
+
 	if globalLogger == nil {
 		// Fallback: create a basic logger if not initialized
 		config := DefaultConfig()
@@ -50,7 +50,7 @@ func GetLogger() *Logger {
 		}
 		globalLogger = logger
 	}
-	
+
 	return globalLogger
 }
 
@@ -86,6 +86,19 @@ func WithError(err error) *Logger {
 	return GetLogger().WithError(err)
 }
 
+// Close closes the global logger
+func Close() error {
+	loggerMutex.Lock()
+	defer loggerMutex.Unlock()
+
+	if globalLogger != nil {
+		err := globalLogger.Close()
+		globalLogger = nil
+		return err
+	}
+	return nil
+}
+
 // Global logging convenience functions
 
 // Trace logs at trace level
@@ -93,14 +106,14 @@ func Trace() *Logger {
 	return GetLogger()
 }
 
-// Debug logs at debug level  
+// Debug logs at debug level
 func Debug() *Logger {
 	return GetLogger()
 }
 
 // Info logs at info level
 func Info() *Logger {
-    return GetLogger()
+	return GetLogger()
 }
 
 // Warn logs at warn level
@@ -115,12 +128,12 @@ func Error() *Logger {
 
 // Fatal logs at fatal level
 func Fatal() *Logger {
-    return GetLogger()
+	return GetLogger()
 }
 
 // Log returns the global logger for fluent calls, e.g., Log().Info().Msg("...")
 func Log() *Logger {
-    return GetLogger()
+	return GetLogger()
 }
 
 // Simple message helpers for common use without chaining
@@ -170,7 +183,7 @@ func TraceFromCtx(ctx context.Context) *TraceContext {
 func ConfigureForEnvironment(projectRoot, environment string) error {
 	config := DefaultConfig()
 	config.LogDirectory = filepath.Join(projectRoot, "logs")
-	
+
 	switch environment {
 	case "development", "dev":
 		config.Level = LevelDebug
@@ -191,7 +204,7 @@ func ConfigureForEnvironment(projectRoot, environment string) error {
 		config.OutputConsole = true
 		config.OutputFile = true
 	}
-	
+
 	return Initialize(config)
 }
 
@@ -199,7 +212,7 @@ func ConfigureForEnvironment(projectRoot, environment string) error {
 func Shutdown() {
 	loggerMutex.Lock()
 	defer loggerMutex.Unlock()
-	
+
 	if globalLogger != nil {
 		// If using file output, we should flush any pending writes
 		// Note: lumberjack doesn't have an explicit Close method,
@@ -212,15 +225,15 @@ func Shutdown() {
 func Health() map[string]interface{} {
 	logger := GetLogger()
 	config := logger.GetConfig()
-	
+
 	health := map[string]interface{}{
-		"initialized":     globalLogger != nil,
-		"level":           string(config.Level),
-		"console_output":  config.OutputConsole,
-		"file_output":     config.OutputFile,
-		"log_directory":   config.LogDirectory,
+		"initialized":    globalLogger != nil,
+		"level":          string(config.Level),
+		"console_output": config.OutputConsole,
+		"file_output":    config.OutputFile,
+		"log_directory":  config.LogDirectory,
 	}
-	
+
 	// Check if log directory exists and is writable
 	if config.OutputFile {
 		if info, err := os.Stat(config.LogDirectory); err != nil {
@@ -230,7 +243,7 @@ func Health() map[string]interface{} {
 			health["directory_status"] = "not_directory"
 		} else {
 			health["directory_status"] = "ok"
-			
+
 			// Check if we can write to the directory
 			testFile := filepath.Join(config.LogDirectory, ".write_test")
 			if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
@@ -242,7 +255,6 @@ func Health() map[string]interface{} {
 			}
 		}
 	}
-	
+
 	return health
 }
-

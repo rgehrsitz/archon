@@ -3,7 +3,6 @@ package index
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/rgehrsitz/archon/internal/index/sqlite"
 	"github.com/rgehrsitz/archon/internal/logging"
@@ -18,17 +17,14 @@ type Manager struct {
 }
 
 func NewManager(projectRoot string) (*Manager, error) {
+	// Check for explicit disable flag (for testing only)
 	if os.Getenv("ARCHON_DISABLE_INDEX") == "1" {
-		// Provide a no-op manager for environments without FTS5 (e.g., CI or dev machines)
+		logging.Log().Info().Msg("Index disabled via ARCHON_DISABLE_INDEX environment variable")
 		return &Manager{disabled: true}, nil
 	}
+
 	db, err := sqlite.Open(projectRoot)
 	if err != nil {
-		// Auto-fallback: if the platform SQLite lacks FTS5, disable the index gracefully
-		if strings.Contains(strings.ToLower(err.Error()), "no such module: fts5") {
-			logging.Log().Warn().Msg("SQLite FTS5 not available; disabling search index for this run")
-			return &Manager{disabled: true}, nil
-		}
 		return nil, fmt.Errorf("failed to open index database: %w", err)
 	}
 
@@ -114,4 +110,8 @@ func (m *Manager) Health() error {
 		return nil
 	}
 	return m.db.Ping()
+}
+
+func (m *Manager) IsDisabled() bool {
+	return m.disabled
 }

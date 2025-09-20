@@ -5,6 +5,7 @@
   import { Button } from '../ui/button/index.js';
   import { Badge } from '../ui/badge/index.js';
   import { Separator } from '../ui/separator/index.js';
+  import { updateNode } from '../../api/nodes.js';
   
   export let selectedNode: any = null;
   let className = '';
@@ -34,18 +35,26 @@
     isDirty = true;
   }
   
-  function handleSave() {
+  async function handleSave() {
     if (!selectedNode || !isDirty) return;
     
-    // TODO: Call NodeService.UpdateNode with changes
-    console.log('Saving node changes:', {
-      id: selectedNode.id,
-      name: editedName,
-      description: editedDescription,
-      properties: editedProperties
-    });
-    
-    isDirty = false;
+    try {
+      const updatedNode = await updateNode({
+        id: selectedNode.id,
+        name: editedName,
+        description: editedDescription,
+        properties: editedProperties
+      });
+      
+      // Update the selectedNode with the response
+      selectedNode = updatedNode;
+      isDirty = false;
+      
+      console.log('Node saved successfully:', updatedNode);
+    } catch (error) {
+      console.error('Failed to save node:', error);
+      // TODO: Show error toast/notification to user
+    }
   }
   
   function handleCancel() {

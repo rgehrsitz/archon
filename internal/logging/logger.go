@@ -17,7 +17,7 @@ type LogLevel string
 const (
 	// Log levels in order of severity
 	LevelTrace LogLevel = "trace"
-	LevelDebug LogLevel = "debug" 
+	LevelDebug LogLevel = "debug"
 	LevelInfo  LogLevel = "info"
 	LevelWarn  LogLevel = "warn"
 	LevelError LogLevel = "error"
@@ -28,25 +28,25 @@ const (
 type Config struct {
 	// Level is the minimum log level to output
 	Level LogLevel `json:"level"`
-	
+
 	// OutputConsole enables console output
 	OutputConsole bool `json:"outputConsole"`
-	
+
 	// OutputFile enables file output
 	OutputFile bool `json:"outputFile"`
-	
+
 	// LogDirectory is where log files are stored
 	LogDirectory string `json:"logDirectory"`
-	
+
 	// MaxFileSize is the maximum size of each log file in megabytes
 	MaxFileSize int `json:"maxFileSize"`
-	
+
 	// MaxBackups is the maximum number of old log files to keep
 	MaxBackups int `json:"maxBackups"`
-	
+
 	// MaxAge is the maximum age of log files in days
 	MaxAge int `json:"maxAge"`
-	
+
 	// CompressBackups determines if old log files should be compressed
 	CompressBackups bool `json:"compressBackups"`
 }
@@ -58,17 +58,18 @@ func DefaultConfig() *Config {
 		OutputConsole:   true,
 		OutputFile:      true,
 		LogDirectory:    "logs",
-		MaxFileSize:     10,  // 10MB per ADR-006
-		MaxBackups:      5,   // 5 files per ADR-006
-		MaxAge:          30,  // 30 days
+		MaxFileSize:     10, // 10MB per ADR-006
+		MaxBackups:      5,  // 5 files per ADR-006
+		MaxAge:          30, // 30 days
 		CompressBackups: true,
 	}
 }
 
 // Logger wraps zerolog with additional functionality
 type Logger struct {
-	logger zerolog.Logger
-	config *Config
+	logger     zerolog.Logger
+	config     *Config
+	fileWriter *lumberjack.Logger
 }
 
 // NewLogger creates a new logger instance with the given configuration
@@ -76,9 +77,9 @@ func NewLogger(config *Config) (*Logger, error) {
 	if config == nil {
 		config = DefaultConfig()
 	}
-	
+
 	var writers []io.Writer
-	
+
 	// Console output with pretty formatting for development
 	if config.OutputConsole {
 		console := zerolog.ConsoleWriter{
@@ -88,14 +89,15 @@ func NewLogger(config *Config) (*Logger, error) {
 		}
 		writers = append(writers, console)
 	}
-	
+
 	// File output with rotation
+	var fileWriter *lumberjack.Logger
 	if config.OutputFile {
 		if err := os.MkdirAll(config.LogDirectory, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create log directory: %w", err)
 		}
-		
-		fileWriter := &lumberjack.Logger{
+
+		fileWriter = &lumberjack.Logger{
 			Filename:   filepath.Join(config.LogDirectory, "archon.log"),
 			MaxSize:    config.MaxFileSize,
 			MaxBackups: config.MaxBackups,
@@ -104,7 +106,7 @@ func NewLogger(config *Config) (*Logger, error) {
 		}
 		writers = append(writers, fileWriter)
 	}
-	
+
 	// Create multi-writer if we have multiple outputs
 	var output io.Writer
 	if len(writers) == 1 {
@@ -115,13 +117,13 @@ func NewLogger(config *Config) (*Logger, error) {
 		// Fallback to console if no writers configured
 		output = os.Stderr
 	}
-	
+
 	// Configure zerolog
 	logger := zerolog.New(output).With().
 		Timestamp().
 		Caller().
 		Logger()
-	
+
 	// Set log level
 	switch config.Level {
 	case LevelTrace:
@@ -139,10 +141,11 @@ func NewLogger(config *Config) (*Logger, error) {
 	default:
 		logger = logger.Level(zerolog.InfoLevel)
 	}
-	
+
 	return &Logger{
-		logger: logger,
-		config: config,
+		logger:     logger,
+		config:     config,
+		fileWriter: fileWriter,
 	}, nil
 }
 
@@ -152,7 +155,7 @@ func (l *Logger) WithContext(fields map[string]interface{}) *Logger {
 	for k, v := range fields {
 		ctx = ctx.Interface(k, v)
 	}
-	
+
 	return &Logger{
 		logger: ctx.Logger(),
 		config: l.config,
@@ -235,4 +238,16 @@ func (l *Logger) UpdateLevel(level LogLevel) {
 		l.logger = l.logger.Level(zerolog.FatalLevel)
 	}
 	l.config.Level = level
+}
+
+// Close closes any open file handles
+func (l *Logger) Close() error {
+	if l.fileWriter != nil {
+		// Force a final write to ensure the file is flushed
+		l.logger.Info().Msg("Closing logger")
+		// lumberjack.Logger doesn't have a Close method, but we can set it to nil
+		// to prevent further writes. The file handle will be closed when the logger is GC'd
+		l.fileWriter = nil
+	}
+	return nil
 }

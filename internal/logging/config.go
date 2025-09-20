@@ -10,15 +10,15 @@ import (
 
 // EnvironmentConfig represents environment-specific logging configuration
 type EnvironmentConfig struct {
-	Environment string  `json:"environment"`
-	LogLevel    string  `json:"log_level"`
-	Console     bool    `json:"console"`
-	File        bool    `json:"file"`
-	MaxSize     int     `json:"max_size_mb"`
-	MaxBackups  int     `json:"max_backups"`
-	MaxAge      int     `json:"max_age_days"`
-	Compress    bool    `json:"compress"`
-	Directory   string  `json:"directory"`
+	Environment string `json:"environment"`
+	LogLevel    string `json:"log_level"`
+	Console     bool   `json:"console"`
+	File        bool   `json:"file"`
+	MaxSize     int    `json:"max_size_mb"`
+	MaxBackups  int    `json:"max_backups"`
+	MaxAge      int    `json:"max_age_days"`
+	Compress    bool   `json:"compress"`
+	Directory   string `json:"directory"`
 }
 
 // DefaultEnvironmentConfigs returns default configurations for different environments
@@ -66,12 +66,12 @@ func LoadConfigFromFile(configPath string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
-	
+
 	var envConfig EnvironmentConfig
 	if err := json.Unmarshal(data, &envConfig); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
-	
+
 	return envConfigToConfig(&envConfig)
 }
 
@@ -81,16 +81,16 @@ func SaveConfigToFile(config *EnvironmentConfig, configPath string) error {
 	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
-	
+
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-	
+
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -100,7 +100,7 @@ func LoadOrCreateConfig(projectRoot, environment, configPath string) (*Config, e
 	if config, err := LoadConfigFromFile(configPath); err == nil {
 		return config, nil
 	}
-	
+
 	// Create default configuration for the environment
 	defaults := DefaultEnvironmentConfigs()
 	envConfig, exists := defaults[environment]
@@ -108,18 +108,18 @@ func LoadOrCreateConfig(projectRoot, environment, configPath string) (*Config, e
 		envConfig = defaults["development"] // fallback
 		envConfig.Environment = environment
 	}
-	
+
 	// Set absolute directory path
 	if !filepath.IsAbs(envConfig.Directory) {
 		envConfig.Directory = filepath.Join(projectRoot, envConfig.Directory)
 	}
-	
+
 	// Save the default configuration for future use
 	if err := SaveConfigToFile(envConfig, configPath); err != nil {
 		// Log warning but don't fail - we can still use the config
 		fmt.Fprintf(os.Stderr, "Warning: failed to save default config: %v\n", err)
 	}
-	
+
 	return envConfigToConfig(envConfig)
 }
 
@@ -143,7 +143,7 @@ func envConfigToConfig(envConfig *EnvironmentConfig) (*Config, error) {
 	default:
 		level = LevelInfo
 	}
-	
+
 	return &Config{
 		Level:           level,
 		OutputConsole:   envConfig.Console,
@@ -190,28 +190,33 @@ func GetEnvironmentFromOS() string {
 func InitializeFromEnvironment(projectRoot string) error {
 	environment := GetEnvironmentFromOS()
 	configPath := filepath.Join(projectRoot, ".archon", "logging.json")
-	
+
 	config, err := LoadOrCreateConfig(projectRoot, environment, configPath)
 	if err != nil {
 		return fmt.Errorf("failed to load logging config for environment %s: %w", environment, err)
 	}
-	
+
+	// Override file output if disabled via environment variable
+	if os.Getenv("ARCHON_DISABLE_FILE_LOGGING") == "1" {
+		config.OutputFile = false
+	}
+
 	return Initialize(config)
 }
 
 // UpdateEnvironmentConfig updates the logging configuration for an environment
 func UpdateEnvironmentConfig(projectRoot, environment string, updates map[string]interface{}) error {
 	configPath := filepath.Join(projectRoot, ".archon", "logging.json")
-	
+
 	// Load existing or create default
 	config, err := LoadOrCreateConfig(projectRoot, environment, configPath)
 	if err != nil {
 		return fmt.Errorf("failed to load existing config: %w", err)
 	}
-	
+
 	// Convert to environment config for easier manipulation
 	envConfig := configToEnvConfig(config, environment)
-	
+
 	toInt := func(v interface{}) (int, bool) {
 		switch n := v.(type) {
 		case int:
@@ -268,17 +273,17 @@ func UpdateEnvironmentConfig(projectRoot, environment string, updates map[string
 			}
 		}
 	}
-	
+
 	// Save updated configuration
 	if err := SaveConfigToFile(envConfig, configPath); err != nil {
 		return fmt.Errorf("failed to save updated config: %w", err)
 	}
-	
+
 	// Convert back and reinitialize logger
 	newConfig, err := envConfigToConfig(envConfig)
 	if err != nil {
 		return fmt.Errorf("failed to convert updated config: %w", err)
 	}
-	
+
 	return Initialize(newConfig)
 }

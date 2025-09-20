@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/rgehrsitz/archon/internal/errors"
@@ -40,13 +42,13 @@ func (s *ProjectService) CreateProject(path string, settings map[string]any) (*t
 	if err != nil {
 		return nil, errors.WrapError(errors.ErrInvalidPath, "Invalid project path", err)
 	}
-	
+
 	// Create project store
 	projectStore, err := store.NewProjectStore(cleanPath)
 	if err != nil {
 		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to initialize project store", err)
 	}
-	
+
 	// Create the project
 	project, storeErr := projectStore.CreateProject(settings)
 	if storeErr != nil {
@@ -55,7 +57,7 @@ func (s *ProjectService) CreateProject(path string, settings map[string]any) (*t
 		}
 		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to create project", storeErr)
 	}
-	
+
 	// Set as current project
 	s.currentProject = projectStore
 	s.currentPath = cleanPath
@@ -66,7 +68,7 @@ func (s *ProjectService) CreateProject(path string, settings map[string]any) (*t
 		// Wrap but do not fail project creation; frontend can still operate
 		// Optionally: surface as a warning envelope in future
 	}
-	
+
 	return project, errors.Envelope{}
 }
 
@@ -78,9 +80,9 @@ func (s *ProjectService) OpenProject(path string) *types.Project {
 		logging.GetLogger().Error().Err(err).Str("path", path).Msg("Invalid project path in OpenProject")
 		return nil
 	}
-	
+
 	logging.GetLogger().Info().Str("path", cleanPath).Msg("Opening project")
-	
+
 	// Create project store (index, etc.)
 	projectStore, err := store.NewProjectStore(cleanPath)
 	if err != nil {
@@ -150,7 +152,7 @@ func (s *ProjectService) OpenProject(path string) *types.Project {
 	if err := logging.InitializeFromEnvironment(cleanPath); err != nil {
 		logging.GetLogger().Warn().Err(err).Str("path", cleanPath).Msg("Failed to initialize project-specific logging")
 	}
-	
+
 	logging.GetLogger().Info().Str("path", cleanPath).Str("rootId", project.RootID).Int("schemaVersion", project.SchemaVersion).Msg("Project opened successfully")
 
 	// After a successful open, ensure index health. If unhealthy, schedule a background rebuild.
@@ -173,6 +175,19 @@ func (s *ProjectService) OpenProject(path string) *types.Project {
 
 // CloseProject closes the current project
 func (s *ProjectService) CloseProject() errors.Envelope {
+	if s.currentProject != nil {
+		// Close the project store to properly clean up resources (especially index manager)
+		if err := s.currentProject.Close(); err != nil {
+			logging.GetLogger().Warn().Err(err).Msg("Failed to close project store")
+		}
+	}
+
+	// Close the logging system to release file handles
+	if err := logging.Close(); err != nil {
+		// Log to stderr since the logging system is being closed
+		fmt.Fprintf(os.Stderr, "Failed to close logging system: %v\n", err)
+	}
+
 	s.currentProject = nil
 	s.currentPath = ""
 	s.readOnly = false
@@ -184,7 +199,7 @@ func (s *ProjectService) GetProjectInfo() (map[string]any, errors.Envelope) {
 	if s.currentProject == nil {
 		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
 	}
-	
+
 	info, err := s.currentProject.GetProjectInfo()
 	if err != nil {
 		if envelope, ok := err.(errors.Envelope); ok {
@@ -192,11 +207,11 @@ func (s *ProjectService) GetProjectInfo() (map[string]any, errors.Envelope) {
 		}
 		return nil, errors.WrapError(errors.ErrStorageFailure, "Failed to get project info", err)
 	}
-	
+
 	// Add current path to info
 	info["currentPath"] = s.currentPath
 	info["readOnly"] = s.readOnly
-	
+
 	return info, errors.Envelope{}
 }
 
@@ -208,7 +223,7 @@ func (s *ProjectService) UpdateProjectSettings(settings map[string]any) errors.E
 	if s.readOnly {
 		return errors.New(errors.ErrSchemaVersion, "Project is opened read-only due to newer schema; writes are disabled")
 	}
-	
+
 	err := s.currentProject.UpdateProjectSettings(settings)
 	if err != nil {
 		if envelope, ok := err.(errors.Envelope); ok {
@@ -216,7 +231,7 @@ func (s *ProjectService) UpdateProjectSettings(settings map[string]any) errors.E
 		}
 		return errors.WrapError(errors.ErrStorageFailure, "Failed to update project settings", err)
 	}
-	
+
 	return errors.Envelope{}
 }
 
@@ -227,14 +242,14 @@ func (s *ProjectService) ProjectExists(path string) bool {
 		logging.GetLogger().Error().Err(err).Str("path", path).Msg("Invalid project path in ProjectExists")
 		return false
 	}
-	
+
 	projectStore, err := store.NewProjectStore(cleanPath)
 	if err != nil {
 		logging.GetLogger().Error().Err(err).Str("path", cleanPath).Msg("Failed to initialize project store in ProjectExists")
 		return false
 	}
 	defer projectStore.Close()
-	
+
 	exists := projectStore.ProjectExists()
 	logging.GetLogger().Debug().Str("path", cleanPath).Bool("exists", exists).Msg("Project exists check")
 	return exists
@@ -245,7 +260,7 @@ func (s *ProjectService) GetCurrentProjectPath() (string, errors.Envelope) {
 	if s.currentProject == nil {
 		return "", errors.New(errors.ErrProjectNotFound, "No project currently open")
 	}
-	
+
 	return s.currentPath, errors.Envelope{}
 }
 
@@ -264,7 +279,7 @@ func (s *ProjectService) getNodeStore() (*store.NodeStore, errors.Envelope) {
 	if s.currentProject == nil {
 		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
 	}
-	
+
 	return store.NewNodeStore(s.currentPath, s.currentProject.IndexManager), errors.Envelope{}
 }
 
@@ -273,16 +288,16 @@ func (s *ProjectService) getGitRepository() (git.Repository, errors.Envelope) {
 	if s.currentProject == nil {
 		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
 	}
-	
+
 	config := git.RepositoryConfig{
 		Path: s.currentPath,
 	}
-	
+
 	repo, err := git.NewRepository(config)
 	if err != nil {
 		return nil, errors.WrapError(errors.ErrGitFailure, "Failed to open repository", err)
 	}
-	
+
 	return repo, errors.Envelope{}
 }
 
@@ -291,6 +306,6 @@ func (s *ProjectService) getIndexManager() (*index.Manager, errors.Envelope) {
 	if s.currentProject == nil {
 		return nil, errors.New(errors.ErrProjectNotFound, "No project currently open")
 	}
-	
+
 	return s.currentProject.IndexManager, errors.Envelope{}
 }
