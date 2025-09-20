@@ -6,8 +6,9 @@ import SunburstVisualization from '$lib/components/workbench/visualizations/Sunb
 import CirclePackVisualization from '$lib/components/workbench/visualizations/CirclePackVisualization.svelte';
 import NodeLinkTreeVisualization from '$lib/components/workbench/visualizations/NodeLinkTreeVisualization.svelte';
 import DebugVisualization from '$lib/components/workbench/visualizations/DebugVisualization.svelte';
-import SimpleTreemapTest from '$lib/components/workbench/visualizations/SimpleTreemapTest.svelte';
 import DirectAPITest from '$lib/components/workbench/visualizations/DirectAPITest.svelte';
+import LayerChartTest from '$lib/components/workbench/visualizations/LayerChartTest.svelte';
+import MinimalTest from '$lib/components/workbench/visualizations/MinimalTest.svelte';
 import type { IHierarchyVisualization } from '$lib/types/visualization.js';
 
 /**
@@ -156,23 +157,6 @@ export function registerAllVisualizations() {
     }
   } as IHierarchyVisualization);
 
-  // Simple test visualization (no LayerChart)
-  visualizationRegistry.register({
-    id: 'simple-test',
-    name: 'Simple Test',
-    description: 'Simple treemap-like test without LayerChart dependencies',
-    category: 'spatial',
-    icon: '🧪',
-    component: SimpleTreemapTest,
-    layoutConstraints: {
-      minWidth: 400,
-      minHeight: 300
-    },
-    capabilities: {
-      supportsSelection: true,
-      requiresFullHierarchy: false
-    }
-  } as IHierarchyVisualization);
 
   // Direct API test (bypasses HierarchyDataAdapter)
   visualizationRegistry.register({
@@ -191,6 +175,43 @@ export function registerAllVisualizations() {
       requiresFullHierarchy: false
     }
   } as IHierarchyVisualization);
+
+  // LayerChart test (basic functionality test)
+  visualizationRegistry.register({
+    id: 'layerchart-test',
+    name: 'LayerChart Test',
+    description: 'Basic LayerChart functionality test with simple rectangles',
+    category: 'network',
+    icon: '🧪',
+    component: LayerChartTest,
+    layoutConstraints: {
+      minWidth: 400,
+      minHeight: 300
+    },
+    capabilities: {
+      supportsSelection: false,
+      requiresFullHierarchy: false
+    }
+  } as IHierarchyVisualization);
+
+  // Minimal test (basic Svelte functionality test)
+  visualizationRegistry.register({
+    id: 'minimal-test',
+    name: 'Minimal Test',
+    description: 'Minimal Svelte component test to verify basic rendering',
+    category: 'network',
+    icon: '🔬',
+    component: MinimalTest,
+    layoutConstraints: {
+      minWidth: 400,
+      minHeight: 300
+    },
+    capabilities: {
+      supportsSelection: false,
+      requiresFullHierarchy: false
+    }
+  } as IHierarchyVisualization);
+
 
   console.log(`Registered ${visualizationRegistry.getAll().length} hierarchy visualizations`);
 }

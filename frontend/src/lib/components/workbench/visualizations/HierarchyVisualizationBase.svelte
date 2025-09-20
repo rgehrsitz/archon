@@ -15,34 +15,31 @@
   const dispatch = createEventDispatcher<HierarchyVisualizationEvents>();
 
   // Internal state
-  let hierarchyData: HierarchyNode<ArchonNode> | null = null;
+  let hierarchyData: any | null = null;
   let loading = true;
   let error: string | null = null;
 
-  // Reactive data loading - only trigger when projectId changes
+  // Reactive data loading - trigger when projectId changes or on mount
   let lastProjectId: string = '';
-  $: if (projectId && projectId !== lastProjectId) {
+  let hasLoadedOnce = false;
+  
+  $: if (projectId !== lastProjectId) {
     lastProjectId = projectId;
-    loadHierarchyData();
+    if (hasLoadedOnce) {
+      loadHierarchyData();
+    }
   }
 
   async function loadHierarchyData() {
-    if (!projectId) {
-      console.warn('No projectId provided to HierarchyVisualizationBase');
-      loading = false;
-      return;
-    }
-    
-    console.log('Loading hierarchy data for project:', projectId);
+    console.log('Loading hierarchy data...', projectId ? `for project: ${projectId}` : 'without specific project');
     loading = true;
     error = null;
     hierarchyData = null;
 
     try {
-      // Load lightweight hierarchy for better performance initially
-      // Override this in specific implementations if needed
-      console.log('Building lightweight hierarchy...');
-      const data = await hierarchyDataAdapter.buildLightweightHierarchy();
+      // Load full hierarchy for spatial visualizations
+      console.log('Building full hierarchy...');
+      const data = await hierarchyDataAdapter.buildFullHierarchy();
       console.log('Hierarchy data loaded successfully:', data);
       
       if (!data) {
@@ -64,15 +61,19 @@
   }
 
   // Handle node selection - converts d3-hierarchy node back to Archon format
-  export function handleNodeSelect(hierarchyNode: HierarchyNode<ArchonNode>) {
+  export function handleNodeSelect(hierarchyNode: any) {
+    console.log('HierarchyVisualizationBase: handleNodeSelect called with:', hierarchyNode);
     const node = hierarchyNode.data;
+    console.log('HierarchyVisualizationBase: Extracted node:', node);
     const path = hierarchyDataAdapter.getNodePath(hierarchyData!, node.id);
+    console.log('HierarchyVisualizationBase: Node path:', path);
     
+    console.log('HierarchyVisualizationBase: Dispatching nodeSelect event...');
     dispatch('nodeSelect', { node, path });
   }
 
   // Handle node hover
-  export function handleNodeHover(hierarchyNode: HierarchyNode<ArchonNode> | null) {
+  export function handleNodeHover(hierarchyNode: any | null) {
     const node = hierarchyNode?.data || null;
     dispatch('nodeHover', { node });
   }
@@ -80,9 +81,8 @@
   // Lifecycle
   onMount(() => {
     console.log('HierarchyVisualizationBase mounted with projectId:', projectId);
-    if (projectId) {
-      loadHierarchyData();
-    }
+    hasLoadedOnce = true;
+    loadHierarchyData();
   });
 
   onDestroy(() => {
