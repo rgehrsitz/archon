@@ -18,6 +18,11 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "CI Bot"
+          git config --global user.email "ci@archon.dev"
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:

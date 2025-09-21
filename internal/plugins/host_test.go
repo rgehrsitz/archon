@@ -142,14 +142,16 @@ func TestHostService_Query_ReadPermissionEnforced(t *testing.T) {
 		t.Fatalf("failed to grant permission: %+v", env)
 	}
 
-	// With permission -> success; index is disabled so expect no results and no error (nil or empty slice OK)
+	// With permission -> success; search should find the "Child" node
 	results, env = hs.Query(ctx, pluginID, "name:Child", 10)
 	if env.Code != "" {
 		t.Fatalf("unexpected error: %+v", env)
 	}
-	if len(results) != 0 {
-		// With disabled index, search returns empty; this assertion ensures call succeeded
-		t.Fatalf("expected 0 results with disabled index, got %d", len(results))
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result for 'name:Child', got %d", len(results))
+	}
+	if results[0].Name != "Child" {
+		t.Fatalf("expected result name 'Child', got '%s'", results[0].Name)
 	}
 }
 
