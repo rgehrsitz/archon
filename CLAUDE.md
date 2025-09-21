@@ -9,23 +9,41 @@ Archon is a desktop knowledge workbench for hierarchical projects with first-cla
 ## Development Commands
 
 ### Primary Development
+
 - `wails dev` - Start development server with hot reload (Go backend + Svelte frontend)
 - `wails build` - Build production distributable package
 
 ### Frontend Only
+
 - `cd frontend && npm run dev` - Frontend development server only
 - `cd frontend && npm run build` - Build frontend
 - `cd frontend && npm run check` - Run Svelte type checking
+- `cd frontend && npm test` - Run frontend tests (Vitest)
+- `cd frontend && npm run test:watch` - Run tests in watch mode
+- `cd frontend && npm run test:coverage` - Run tests with coverage
+
+### Go Backend Testing
+
+- `go test ./...` - Run all Go tests
+- `go test -v ./internal/merge` - Run specific package tests with verbose output
+- `ARCHON_DISABLE_INDEX=1 go test -v ./internal/merge` - Run tests with index disabled
+
+### CLI Testing
+
+- `./archon --project /path/to/project diff HEAD~1 HEAD` - Test diff functionality
+- `./archon --project /path/to/project index rebuild --verbose` - Test index rebuild
 
 ## Architecture Overview
 
 ### Core Data Model
+
 - **Identity**: Each node has an immutable UUIDv7 `id` with sibling-unique names
 - **Storage**: Sharded JSON files (`/nodes/<id>.json`) + SQLite index (`/.archon/index/archon.db`)
 - **History**: Git-backed snapshots with semantic diff/merge as primary UX
 - **Hierarchy**: Strict tree structure (no DAG in v1), meaningful child ordering
 
 ### Backend Structure (`internal/`)
+
 - `store/` - Node storage and project management
 - `index/sqlite/` - SQLite indexing for fast search
 - `git/` - Hybrid Git implementation (system git + go-git)
@@ -37,12 +55,14 @@ Archon is a desktop knowledge workbench for hierarchical projects with first-cla
 - `types/` - Core data models
 
 ### Frontend Structure (`frontend/src/`)
+
 - `lib/api/` - Go service wrappers
 - `lib/components/ui/` - bits-ui based components (50+ component categories, 250+ components)
 - `lib/plugins/` - Plugin system runtime with sandboxed execution
 - Built with Svelte 5 runes, Tailwind 4 CSS-first config
 
 ### Key Technical Details
+
 - Uses UUIDv7 for time-sortable identifiers (`internal/id/uuid.go`)
 - Content-addressed attachments via Git LFS
 - Rebuildable SQLite index for performance
@@ -50,12 +70,42 @@ Archon is a desktop knowledge workbench for hierarchical projects with first-cla
 - Error envelopes and rotating logs for reliability
 
 ## Prerequisites
+
 - Go 1.23+
 - Node.js 18+
 - Wails CLI
 
 ## Important Notes
+
 - The project uses a hybrid Git approach: system git for porcelain/LFS/credentials, go-git for fast reads
 - Schema versioning with forward migration (see `docs/adr/ADR-007-data-migration-and-schema-versioning.md`)
 - Child order is meaningful and preserved in storage
 - Names must be unique among siblings only (not globally)
+
+## Development Patterns
+
+### Testing Approach
+
+- Frontend: Vitest with Testing Library for component testing
+- Backend: Go standard testing package with table-driven tests
+- Integration: CLI commands can be tested directly via `./archon` binary
+- Environment variable `ARCHON_DISABLE_INDEX=1` can disable SQLite indexing for certain tests
+
+### Error Handling
+
+- Go backend uses error envelopes (`internal/types/envelope.go`)
+- Frontend API calls return structured error responses
+- All errors include context and are logged with zerolog
+
+### Plugin Development
+
+- Plugins run in sandboxed JS/TS workers with limited permissions
+- Plugin types: Importers, Exporters, Transformers, Validators, Panels, Providers
+- See `examples/plugins/` for implementation examples
+- Host services provide controlled access to project data
+
+### Content-Addressed Storage
+
+- Attachments stored as `attachments/<hash>/content` with SHA-256 addressing
+- Files ≥1MB automatically use Git LFS
+- Use `./archon attachment` commands for management and garbage collection

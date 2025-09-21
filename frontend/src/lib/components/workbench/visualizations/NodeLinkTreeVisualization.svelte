@@ -1,7 +1,9 @@
 <script lang="ts">
   import HierarchyVisualizationBase from './HierarchyVisualizationBase.svelte';
   import { Chart, Svg, Tree, Circle, Line, Text } from 'layerchart';
-  import type { HierarchyNode, HierarchyPointNode, HierarchyPointLink } from 'd3-hierarchy';
+  // Temporary type aliases for d3-hierarchy (workaround for import issues)
+  type HierarchyPointNode<T> = any;
+  type HierarchyPointLink<T> = any;
   import type { ArchonNode } from '$lib/types/visualization.js';
   import { scaleOrdinal } from 'd3-scale';
   import { schemeCategory10 } from 'd3-scale-chromatic';
@@ -102,12 +104,12 @@
   <div style="width: {width}px; height: {height}px;">
     <Chart padding={{ top: 20, right: 20, bottom: 20, left: 20 }}>
       <Svg>
-        <Tree 
-          hierarchy={hierarchyData}
+        <Tree
+          {...{ data: hierarchyData } as any}
           {orientation}
           nodeSize={orientation === 'horizontal' ? [30, 200] : [120, 30]}
         >
-        {#snippet children({ nodes, links })}
+        {#snippet children({ nodes, links }: { nodes: any[], links: any[] })}
           <!-- Draw links first (behind nodes) -->
           {#each links as link}
             <Line

@@ -41,23 +41,23 @@
       console.log('Building full hierarchy...');
       const data = await hierarchyDataAdapter.buildFullHierarchy();
       console.log('Hierarchy data loaded successfully:', data);
-      
+
       if (!data) {
         throw new Error('No hierarchy data returned');
       }
-      
+
       hierarchyData = data;
-      loading = false;
     } catch (err) {
       console.error('Failed to load hierarchy data:', err);
       console.error('Error type:', typeof err);
       console.error('Error instance:', err instanceof Error);
       error = err instanceof Error ? err.message : 'Failed to load data';
       hierarchyData = null;
+    } finally {
+      // Always set loading to false in finally block to ensure it gets set
       loading = false;
+      console.log('Loading complete. Loading:', loading, 'Error:', error, 'Has data:', !!hierarchyData);
     }
-    
-    console.log('Loading complete. Loading:', loading, 'Error:', error, 'Has data:', !!hierarchyData);
   }
 
   // Handle node selection - converts d3-hierarchy node back to Archon format
@@ -94,9 +94,10 @@
 </script>
 
 <div class="hierarchy-visualization-base w-full h-full relative bg-background">
+
   {#if loading}
     <!-- Loading State -->
-    <div class="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+    <div class="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-40">
       <div class="flex flex-col items-center gap-3">
         <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
         <div class="text-sm text-muted-foreground">Loading visualization...</div>
@@ -104,12 +105,12 @@
     </div>
   {:else if error}
     <!-- Error State -->
-    <div class="absolute inset-0 flex items-center justify-center bg-background">
+    <div class="absolute inset-0 flex items-center justify-center bg-background z-40">
       <div class="flex flex-col items-center gap-3 text-center max-w-md">
         <div class="text-4xl opacity-60">⚠️</div>
         <div class="text-lg font-medium text-foreground">Visualization Error</div>
         <div class="text-sm text-muted-foreground">{error}</div>
-        <button 
+        <button
           class="mt-2 px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
           onclick={loadHierarchyData}
         >
@@ -119,7 +120,7 @@
     </div>
   {:else if !hierarchyData}
     <!-- No Data State -->
-    <div class="absolute inset-0 flex items-center justify-center bg-background">
+    <div class="absolute inset-0 flex items-center justify-center bg-background z-40">
       <div class="flex flex-col items-center gap-3 text-center">
         <div class="text-4xl opacity-60">📊</div>
         <div class="text-lg font-medium text-foreground">No Data</div>

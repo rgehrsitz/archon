@@ -1,6 +1,6 @@
 <script lang="ts">
   import HierarchyVisualizationBase from './HierarchyVisualizationBase.svelte';
-  import { Chart, Svg, Treemap, Rect, Text, Group, Bounds, ChartClipPath, RectClipPath } from 'layerchart';
+  import { Chart, Svg, Treemap, Rect, Text, Group, Bounds, ChartClipPath, RectClipPath, Circle } from 'layerchart';
   import type { HierarchyNode, HierarchyRectangularNode } from 'd3-hierarchy';
   import type { ArchonNode } from '$lib/types/visualization.js';
 
@@ -110,15 +110,15 @@
   {height}
   let:hierarchyData
 >
-  <div class="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg shadow-sm border border-slate-600">
+  <div class="w-full h-full bg-gradient-to-br from-red-900 to-red-800 rounded-lg shadow-sm border border-red-600">
+
     {#if hierarchyData}
       <!-- Debug info -->
-      <div class="absolute top-2 left-2 bg-slate-800 text-slate-200 text-xs p-2 rounded z-10 border border-slate-600">
+      <div class="absolute top-2 left-2 bg-green-800 text-green-200 text-xs p-2 rounded z-10 border border-green-600 max-w-lg">
         <div>Treemap Data: {hierarchyData ? 'loaded' : 'null'}</div>
         <div>Type: {typeof hierarchyData}</div>
         {#if hierarchyData}
           <div>Has children: {hierarchyData.children ? hierarchyData.children.length : 'none'}</div>
-          <div>Data: {JSON.stringify(hierarchyData.data).substring(0, 50)}...</div>
           <div>Root name: {hierarchyData.data?.name || 'no name'}</div>
           <div>Value: {hierarchyData.value}</div>
           <div>Depth: {hierarchyData.depth}</div>
@@ -126,19 +126,63 @@
             <div>First child: {hierarchyData.children[0]?.data?.name}</div>
             <div>Child count: {hierarchyData.children.length}</div>
           {/if}
+
+          <!-- Show full data structure for debugging -->
+          <details class="mt-2">
+            <summary class="cursor-pointer text-green-100">Full Data Structure</summary>
+            <pre class="text-xs mt-1 bg-green-900 p-1 rounded overflow-auto max-h-32">
+{JSON.stringify(hierarchyData, null, 2)}
+            </pre>
+          </details>
         {/if}
       </div>
+      <!-- Basic LayerChart Test -->
+      <div class="absolute top-60 left-2 bg-blue-800 text-blue-200 text-xs p-4 rounded z-20 border border-blue-600 w-64">
+        <div class="mb-2 text-blue-100 font-semibold">LayerChart Basic Test:</div>
+        <div class="bg-blue-900 p-2 rounded border">
+          <Chart data={[{x: 0, y: 0}, {x: 1, y: 1}]} width={200} height={100}>
+            <Svg>
+              <Circle cx={50} cy={50} r={20} fill="red" />
+              <Text x={50} y={80} value="LayerChart Works!" class="text-xs fill-white" />
+            </Svg>
+          </Chart>
+        </div>
+      </div>
+
+      <!-- Simple Treemap Test -->
+      <div class="absolute top-80 right-2 bg-purple-800 text-purple-200 text-xs p-4 rounded z-20 border border-purple-600 w-64">
+        <div class="mb-2 text-purple-100 font-semibold">Simple Treemap Test:</div>
+        <div class="bg-purple-900 p-2 rounded border">
+          <Chart data={{name: "root", children: [{name: "A", value: 30}, {name: "B", value: 70}]}} width={200} height={100}>
+            <Svg>
+              <Treemap let:nodes>
+                {#each nodes as node}
+                  <Rect
+                    x={node.x0}
+                    y={node.y0}
+                    width={node.x1 - node.x0}
+                    height={node.y1 - node.y0}
+                    fill="orange"
+                    stroke="white"
+                  />
+                {/each}
+              </Treemap>
+            </Svg>
+          </Chart>
+        </div>
+      </div>
+
       <!-- Interactive Treemap with LayerChart -->
       <div class="w-full h-full p-4">
-        <Chart 
+        <Chart
           data={hierarchyData}
-          width={width - 32} 
+          width={width - 32}
           height={height - 32}
           padding={{ top: 10, right: 10, bottom: 10, left: 10 }}
         >
           <Svg>
-            <Treemap 
-              let:nodes 
+            <Treemap
+              let:nodes
               bind:selected={selectedNode}
             >
               <!-- Debug: Show nodes count -->
@@ -219,11 +263,15 @@
       </div>
     {:else}
       <div class="flex items-center justify-center h-full">
-        <div class="text-center p-8">
-          <div class="text-6xl mb-6 opacity-60">📊</div>
-          <div class="text-xl font-semibold mb-3 text-slate-200">No Data Available</div>
-          <div class="text-sm text-slate-400 max-w-sm">
-            Load a project to see the treemap visualization of your hierarchy
+        <div class="text-center p-8 bg-red-600 border border-red-400 rounded-lg">
+          <div class="text-6xl mb-6 opacity-60">❌</div>
+          <div class="text-xl font-semibold mb-3 text-white">NO HIERARCHY DATA</div>
+          <div class="text-sm text-red-200 max-w-sm">
+            TreemapVisualization component loaded but hierarchyData is null/undefined.
+            ProjectId: {projectId}
+          </div>
+          <div class="mt-4 text-xs text-red-100">
+            Check console for errors in HierarchyDataAdapter
           </div>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import type { ComponentType } from 'svelte';
-import type { HierarchyNode } from 'd3-hierarchy';
+// Temporary type alias for d3-hierarchy (workaround for import issues)
+type HierarchyNode<T> = any;
 
 export interface ArchonNode {
   id: string;

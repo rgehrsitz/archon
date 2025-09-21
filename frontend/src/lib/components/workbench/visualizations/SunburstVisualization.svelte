@@ -102,7 +102,7 @@
                       fill={getNodeColor(node)}
                       opacity={getNodeOpacity(node)}
                       stroke="#ffffff"
-                      strokeWidth="1"
+                      strokeWidth={1}
                       class="sunburst-arc cursor-pointer transition-all duration-300 ease-out"
                       onclick={() => handleArcClick(node)}
                       onmouseenter={() => handleArcHover(node)}
