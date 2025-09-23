@@ -1,10 +1,7 @@
 import { visualizationRegistry } from './HierarchyVisualizationRegistry.js';
 import TreeView from '$lib/components/workbench/TreeView.svelte';
 import MillerColumns from '$lib/components/workbench/MillerColumns.svelte';
-import TreemapVisualization from '$lib/components/workbench/visualizations/TreemapVisualization.svelte';
-import SunburstVisualization from '$lib/components/workbench/visualizations/SunburstVisualization.svelte';
-import CirclePackVisualization from '$lib/components/workbench/visualizations/CirclePackVisualization.svelte';
-import NodeLinkTreeVisualization from '$lib/components/workbench/visualizations/NodeLinkTreeVisualization.svelte';
+import LayerChart2PackVisualization from '$lib/components/workbench/visualizations/LayerChart2PackVisualization.svelte';
 import DebugVisualization from '$lib/components/workbench/visualizations/DebugVisualization.svelte';
 import DirectAPITest from '$lib/components/workbench/visualizations/DirectAPITest.svelte';
 import LayerChartTest from '$lib/components/workbench/visualizations/LayerChartTest.svelte';
@@ -53,56 +50,14 @@ export function registerAllVisualizations() {
     }
   } as IHierarchyVisualization);
 
-  // LayerChart visualizations (new)
-  visualizationRegistry.register({
-    id: 'treemap',
-    name: 'Treemap',
-    description: 'Space-filling rectangular hierarchy visualization',
-    category: 'spatial',
-    icon: '🔲',
-    component: TreemapVisualization,
-    layoutConstraints: {
-      minWidth: 400,
-      minHeight: 300,
-      aspectRatio: 4/3
-    },
-    capabilities: {
-      supportsZooming: true,
-      supportsSelection: true,
-      supportsTooltips: true,
-      requiresFullHierarchy: true
-    }
-  } as IHierarchyVisualization);
-
-  visualizationRegistry.register({
-    id: 'sunburst',
-    name: 'Sunburst',
-    description: 'Radial partition showing hierarchy as concentric rings',
-    category: 'spatial',
-    icon: '☀️',
-    component: SunburstVisualization,
-    layoutConstraints: {
-      minWidth: 400,
-      minHeight: 400,
-      aspectRatio: 1,
-      preferredWidth: 600,
-      preferredHeight: 600
-    },
-    capabilities: {
-      supportsZooming: true,
-      supportsSelection: true,
-      supportsTooltips: true,
-      requiresFullHierarchy: true
-    }
-  } as IHierarchyVisualization);
-
+  // LayerChart 2.0 visualization (Svelte 5 compatible)
   visualizationRegistry.register({
     id: 'pack',
-    name: 'Circle Packing',
+    name: 'Pack',
     description: 'Nested circles representing hierarchical structure',
     category: 'spatial',
     icon: '🎯',
-    component: CirclePackVisualization,
+    component: LayerChart2PackVisualization,
     layoutConstraints: {
       minWidth: 400,
       minHeight: 400,
@@ -111,27 +66,6 @@ export function registerAllVisualizations() {
       preferredHeight: 600
     },
     capabilities: {
-      supportsZooming: true,
-      supportsSelection: true,
-      supportsTooltips: true,
-      requiresFullHierarchy: true
-    }
-  } as IHierarchyVisualization);
-
-  visualizationRegistry.register({
-    id: 'node-link',
-    name: 'Node-Link Tree',
-    description: 'Traditional tree diagram with nodes and connecting lines',
-    category: 'network',
-    icon: '🌲',
-    component: NodeLinkTreeVisualization,
-    layoutConstraints: {
-      minWidth: 600,
-      minHeight: 400,
-      aspectRatio: 3/2
-    },
-    capabilities: {
-      supportsPanning: true,
       supportsZooming: true,
       supportsSelection: true,
       supportsTooltips: true,
@@ -175,6 +109,7 @@ export function registerAllVisualizations() {
       requiresFullHierarchy: false
     }
   } as IHierarchyVisualization);
+
 
   // LayerChart test (basic functionality test)
   visualizationRegistry.register({
