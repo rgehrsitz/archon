@@ -14,7 +14,7 @@ Commands
 - Dev: wails dev
 
 Style & conventions
-- Formatting: run gofmt/gosimports (go fmt) for Go; Prettier for frontend. Enforce with pre-commit hooks.
+- Formatting: run gofmt/goimports (go fmt) for Go; Prettier for frontend. Enforce with pre-commit hooks.
 - Imports: group stdlib first, then third-party, then internal; use goimports to auto-sort for Go.
 - Naming: Go uses mixedCaps (CamelCase) for functions/types, short receiver names (r, s, n). Tests: TestSomething_Scenario.
 - Types: prefer concrete small structs; use interfaces for boundaries only. Keep exported types documented.
